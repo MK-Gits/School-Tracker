@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, Clock, TrendingUp, AlertCircle, BookOpen } from 'lucide-react';
-import { loadData } from '../utils/storage';
+import { CheckCircle, Clock, TrendingUp, AlertCircle, BookOpen, Download, Upload } from 'lucide-react';
+import { loadData, saveData } from '../utils/storage';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color }) => (
     <motion.div
@@ -75,11 +75,71 @@ const Dashboard = () => {
         setPendingAssignments(allPending.slice(0, 5));
     }, []);
 
+    const exportData = () => {
+        const data = {
+            syllabus: loadData('syllabus_data', []),
+            activities: loadData('activities_data', []),
+            notes: loadData('study_notes_data', []),
+            daily: loadData('daily_tasks', [])
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `school_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const importData = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.syllabus) saveData('syllabus_data', data.syllabus);
+                if (data.activities) saveData('activities_data', data.activities);
+                if (data.notes) saveData('study_notes_data', data.notes);
+                if (data.daily) saveData('daily_tasks', data.daily);
+
+                alert('Data restored successfully! The page will now reload.');
+                window.location.reload();
+            } catch (error) {
+                console.error('Error importing data:', error);
+                alert('Failed to import data. Please check the file format.');
+            }
+        };
+        reader.readAsText(file);
+    };
+
     return (
         <div className="space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold mb-2">Welcome Back! 👋</h1>
-                <p className="text-gray-400">Here's what's happening in your education journey today.</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold mb-2">Welcome Back! 👋</h1>
+                    <p className="text-gray-400">Here's what's happening in your education journey today.</p>
+                </div>
+                <div className="flex gap-3">
+                    <button
+                        onClick={exportData}
+                        className="bg-surface/50 hover:bg-surface border border-white/10 text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 text-sm"
+                    >
+                        <Download size={18} /> Export Data
+                    </button>
+                    <label className="bg-primary hover:bg-primary/80 text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 text-sm cursor-pointer">
+                        <Upload size={18} /> Import Data
+                        <input
+                            type="file"
+                            accept=".json"
+                            onChange={importData}
+                            className="hidden"
+                        />
+                    </label>
+                </div>
             </div>
 
             {/* Stats Grid */}
