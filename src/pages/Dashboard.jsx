@@ -33,6 +33,8 @@ const Dashboard = () => {
 
     useEffect(() => {
         const subjects = loadData('syllabus_data', []);
+        const dailyTasksData = loadData('daily_tasks_data', {});
+        const todayKey = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
 
         let pendingCount = 0;
         let completedCount = 0;
@@ -40,6 +42,7 @@ const Dashboard = () => {
         let allCompleted = [];
         let allPending = [];
 
+        // 1. Process Syllabus Data
         subjects.forEach(subject => {
             subject.topics.forEach(topic => {
                 totalCount++;
@@ -52,15 +55,47 @@ const Dashboard = () => {
                         });
                     }
                 } else {
+                    // Check legacy homework note
                     if (topic.homework) {
                         pendingCount++;
                         allPending.push({
-                            ...topic,
-                            subjectName: subject.name
+                            id: topic.id,
+                            name: topic.homework,
+                            detail: `${topic.name} • ${subject.name}`,
+                            type: 'legacy'
+                        });
+                    }
+
+                    // Check modern assignments array
+                    if (topic.assignments && topic.assignments.length > 0) {
+                        topic.assignments.forEach(assignment => {
+                            if (!assignment.completed) {
+                                pendingCount++;
+                                allPending.push({
+                                    id: assignment.id,
+                                    name: assignment.text,
+                                    detail: `${topic.name} • ${subject.name}`,
+                                    type: 'assignment'
+                                });
+                            }
                         });
                     }
                 }
             });
+        });
+
+        // 2. Process Today's Daily Tasks
+        const todaysTasks = dailyTasksData[todayKey] || [];
+        todaysTasks.forEach(task => {
+            if (!task.completed) {
+                pendingCount++;
+                allPending.push({
+                    id: task.id,
+                    name: task.text,
+                    detail: 'Daily Goal',
+                    type: 'daily'
+                });
+            }
         });
 
         // Sort recent activity by date desc
@@ -203,14 +238,14 @@ const Dashboard = () => {
                     <h2 className="text-xl font-bold mb-6">Pending Assignments</h2>
                     <div className="space-y-4">
                         {pendingAssignments.length > 0 ? (
-                            pendingAssignments.map((item, i) => (
-                                <div key={i} className="flex items-center gap-4 p-3 hover:bg-white/5 rounded-xl transition-colors">
+                            pendingAssignments.map((item) => (
+                                <div key={item.id} className="flex items-center gap-4 p-3 hover:bg-white/5 rounded-xl transition-colors">
                                     <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent flex-shrink-0">
                                         <BookOpen size={18} />
                                     </div>
                                     <div>
-                                        <p className="font-medium">{item.homework}</p>
-                                        <p className="text-xs text-gray-400">{item.name} • {item.subjectName}</p>
+                                        <p className="font-medium">{item.name}</p>
+                                        <p className="text-xs text-gray-400">{item.detail}</p>
                                     </div>
                                 </div>
                             ))
