@@ -80,7 +80,7 @@ const Dashboard = () => {
             syllabus: loadData('syllabus_data', []),
             activities: loadData('activities_data', []),
             notes: loadData('study_notes_data', []),
-            daily: loadData('daily_tasks', [])
+            daily: loadData('daily_tasks_data', [])
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -104,7 +104,7 @@ const Dashboard = () => {
                 if (data.syllabus) saveData('syllabus_data', data.syllabus);
                 if (data.activities) saveData('activities_data', data.activities);
                 if (data.notes) saveData('study_notes_data', data.notes);
-                if (data.daily) saveData('daily_tasks', data.daily);
+                if (data.daily) saveData('daily_tasks_data', data.daily);
 
                 alert('Data restored successfully! The page will now reload.');
                 window.location.reload();

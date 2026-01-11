@@ -33,7 +33,27 @@ const ActivitiesTracker = () => {
     };
 
     const updateProgress = (id, progress) => {
-        setActivities(activities.map(a => a.id === id ? { ...a, progress: Math.min(100, Math.max(0, progress)) } : a));
+        const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+        setActivities(activities.map(a => {
+            if (a.id === id) {
+                const newProgress = Math.min(100, Math.max(0, progress));
+                const history = a.history || [];
+
+                // Only add history if progress actually changed
+                if (newProgress !== a.progress) {
+                    // Update or add history entry for today
+                    const existingEntryIndex = history.findIndex(h => h.date === today);
+                    let newHistory;
+                    if (existingEntryIndex >= 0) {
+                        newHistory = history.map((h, i) => i === existingEntryIndex ? { ...h, to: newProgress, timestamp: new Date().toISOString() } : h);
+                    } else {
+                        newHistory = [...history, { date: today, from: a.progress, to: newProgress, timestamp: new Date().toISOString() }];
+                    }
+                    return { ...a, progress: newProgress, history: newHistory };
+                }
+            }
+            return a;
+        }));
     };
 
     const updateNotes = (id, notes) => {
