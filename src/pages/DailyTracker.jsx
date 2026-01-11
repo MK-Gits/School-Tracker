@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Circle, Plus, Calendar as CalendarIcon, Clock, ArrowRight, ChevronLeft, ChevronRight, Book, Trophy, TrendingUp } from 'lucide-react';
+import { CheckCircle, Circle, Plus, Calendar as CalendarIcon, Clock, ArrowRight, ChevronLeft, ChevronRight, Book, Trophy, TrendingUp, AlertCircle } from 'lucide-react';
 import { loadData, saveData } from '../utils/storage';
 import { Link } from 'react-router-dom';
 
 const DailyTracker = () => {
-    const [syllabusData, setSyllabusData] = useState([]);
-    const [activitiesData, setActivitiesData] = useState([]);
-    const [allDailyTasks, setAllDailyTasks] = useState({});
+    const [syllabusData, setSyllabusData] = useState(() => loadData('syllabus_data', []));
+    const [activitiesData, setActivitiesData] = useState(() => loadData('activities_data', []));
+    const [allDailyTasks, setAllDailyTasks] = useState(() => {
+        const stored = loadData('daily_tasks_data', {});
+        // Migration: If stored tasks is an array (old structure), move it to today
+        if (Array.isArray(stored)) {
+            const today = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+            return { [today]: stored };
+        }
+        return stored;
+    });
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [newTask, setNewTask] = useState('');
     const [viewDate, setViewDate] = useState(new Date()); // For calendar navigation
+    const [newTest, setNewTest] = useState({ subject: '', name: '', date: '' });
 
     const formatDateKey = (date) => {
         const d = new Date(date);
@@ -20,22 +29,19 @@ const DailyTracker = () => {
     const dateKey = formatDateKey(selectedDate);
 
     useEffect(() => {
-        setSyllabusData(loadData('syllabus_data', []));
-        setActivitiesData(loadData('activities_data', []));
-        const storedTasks = loadData('daily_tasks_data', {});
-
-        // Migration: If stored tasks is an array (old structure), move it to today
-        if (Array.isArray(storedTasks)) {
-            const today = formatDateKey(new Date());
-            setAllDailyTasks({ [today]: storedTasks });
-        } else {
-            setAllDailyTasks(storedTasks);
-        }
+        // We sync from storage if and only if it changes externally
+        const handleStorage = () => {
+            setSyllabusData(loadData('syllabus_data', []));
+            setActivitiesData(loadData('activities_data', []));
+            const stored = loadData('daily_tasks_data', {});
+            setAllDailyTasks(Array.isArray(stored) ? { [formatDateKey(new Date())]: stored } : stored);
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
     }, []);
 
-    useEffect(() => {
-        saveData('daily_tasks_data', allDailyTasks);
-    }, [allDailyTasks]);
+    // No longer using useEffect for saving to avoid race conditions on mount/unmount
+    // Each action now saves directly
 
     const dailyTasks = allDailyTasks[dateKey] || [];
 
@@ -79,6 +85,7 @@ const DailyTracker = () => {
             [dateKey]: [...dailyTasks, { id: Date.now(), text: newTask, completed: false }]
         };
         setAllDailyTasks(updatedTasks);
+        saveData('daily_tasks_data', updatedTasks);
         setNewTask('');
     };
 
@@ -88,6 +95,7 @@ const DailyTracker = () => {
             [dateKey]: dailyTasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
         };
         setAllDailyTasks(updatedTasks);
+        saveData('daily_tasks_data', updatedTasks);
     };
 
     const deleteDailyTask = (id) => {
@@ -96,6 +104,18 @@ const DailyTracker = () => {
             [dateKey]: dailyTasks.filter(t => t.id !== id)
         };
         setAllDailyTasks(updatedTasks);
+        saveData('daily_tasks_data', updatedTasks);
+    };
+
+    const addTest = (e) => {
+        e.preventDefault();
+        if (!newTest.subject || !newTest.name || !newTest.date) return;
+
+        const storedTests = loadData('tests_data', []);
+        const updatedTests = [...storedTests, { id: Date.now(), ...newTest }];
+        saveData('tests_data', updatedTests);
+        setNewTest({ subject: '', name: '', date: '' });
+        alert('Test scheduled successfully! Check it on your Dashboard.');
     };
 
     const pendingHomework = syllabusData.flatMap(subject =>
@@ -201,6 +221,56 @@ const DailyTracker = () => {
                                 );
                             })}
                         </div>
+                    </div>
+
+                    {/* Add Test Section */}
+                    <div className="bg-surface/50 backdrop-blur-xl p-5 rounded-2xl border border-white/5 shadow-2xl space-y-4">
+                        <h3 className="font-bold text-lg flex items-center gap-2">
+                            <AlertCircle size={20} className="text-purple-500" /> Schedule Test
+                        </h3>
+                        <form onSubmit={addTest} className="space-y-3">
+                            <div>
+                                <label className="block text-[10px] text-gray-500 mb-1 uppercase font-bold tracking-wider">Subject</label>
+                                <select
+                                    value={newTest.subject}
+                                    onChange={(e) => setNewTest({ ...newTest, subject: e.target.value })}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary text-white"
+                                    required
+                                >
+                                    <option value="" className="bg-[#1a1c20]">Select Subject</option>
+                                    {syllabusData.map(s => (
+                                        <option key={s.id} value={s.name} className="bg-[#1a1c20]">{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-gray-500 mb-1 uppercase font-bold tracking-wider">Test Name</label>
+                                <input
+                                    type="text"
+                                    value={newTest.name}
+                                    onChange={(e) => setNewTest({ ...newTest, name: e.target.value })}
+                                    placeholder="e.g. Unit Test 1"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-gray-500 mb-1 uppercase font-bold tracking-wider">Date</label>
+                                <input
+                                    type="date"
+                                    value={newTest.date}
+                                    onChange={(e) => setNewTest({ ...newTest, date: e.target.value })}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary"
+                                    required
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-xl font-bold transition-all active:scale-95 text-xs"
+                            >
+                                Schedule Test
+                            </button>
+                        </form>
                     </div>
                 </div>
 
