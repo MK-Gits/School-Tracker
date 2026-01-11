@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Trophy, Star, Activity as ActivityIcon } from 'lucide-react';
+import { Plus, Trash2, Trophy, Star, Activity as ActivityIcon, CheckCircle, Clock, TrendingUp } from 'lucide-react';
 import { loadData, saveData } from '../utils/storage';
 
 const ActivitiesTracker = () => {
@@ -8,9 +8,43 @@ const ActivitiesTracker = () => {
     const [newActivity, setNewActivity] = useState('');
     const [category, setCategory] = useState('IXL'); // IXL, Sports, Music, etc.
 
+    const [syllabusData, setSyllabusData] = useState([]);
+    const [recentActivity, setRecentActivity] = useState([]);
+
     useEffect(() => {
         setActivities(loadData('activities_data', []));
+        setSyllabusData(loadData('syllabus_data', []));
     }, []);
+
+    useEffect(() => {
+        // Combine recent activity (Syllabus completions + Activity updates)
+        const syllabusActivity = syllabusData.flatMap(subject =>
+            subject.topics
+                .filter(topic => topic.status === 'completed' && topic.completedAt)
+                .map(topic => ({
+                    id: topic.id,
+                    name: topic.name,
+                    detail: subject.name,
+                    date: topic.completedAt,
+                    type: 'syllabus'
+                }))
+        );
+
+        const progressActivity = activities.flatMap(activity =>
+            (activity.history || []).map(h => ({
+                id: `${activity.id}-${h.timestamp || h.date}`,
+                name: activity.name,
+                detail: `${h.from}% → ${h.to}%`,
+                date: h.timestamp || h.date,
+                type: 'activity'
+            }))
+        );
+
+        const combined = [...syllabusActivity, ...progressActivity]
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        setRecentActivity(combined);
+    }, [activities, syllabusData]);
 
     useEffect(() => {
         saveData('activities_data', activities);
@@ -159,6 +193,41 @@ const ActivitiesTracker = () => {
                         </motion.div>
                     ))}
                 </AnimatePresence>
+            </div>
+
+            {/* Comprehensive Recent Activity */}
+            <div className="bg-surface/30 backdrop-blur-md p-6 rounded-2xl border border-white/5">
+                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <TrendingUp size={22} className="text-primary" /> Comprehensive Activity Log
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {recentActivity.length > 0 ? (
+                        recentActivity.map((item) => (
+                            <div key={item.id} className="flex items-start gap-4 p-4 bg-white/5 rounded-2xl border border-transparent hover:border-white/5 hover:bg-white/[0.08] transition-all group">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110
+                                    ${item.type === 'syllabus' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'}
+                                `}>
+                                    {item.type === 'syllabus' ? <CheckCircle size={20} /> : <TrendingUp size={20} />}
+                                </div>
+                                <div>
+                                    <p className="font-bold text-sm text-gray-100">{item.name}</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">{item.detail}</p>
+                                    <p className="text-[10px] text-gray-500 mt-2 font-bold uppercase tracking-wider flex items-center gap-1">
+                                        <Clock size={10} /> {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="col-span-full py-16 text-center border-2 border-dashed border-white/5 rounded-3xl">
+                            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
+                                <ActivityIcon size={32} />
+                            </div>
+                            <p className="text-gray-500 font-bold mb-1">No activity logged yet</p>
+                            <p className="text-sm text-gray-600">Start completing topics or updating activity progress to see your history!</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

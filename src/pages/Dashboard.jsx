@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, Clock, TrendingUp, AlertCircle, BookOpen, Download, Upload, Trash2 } from 'lucide-react';
 import { loadData, saveData } from '../utils/storage';
+import { Link } from 'react-router-dom';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color }) => (
     <motion.div
@@ -142,8 +143,20 @@ const Dashboard = () => {
             else avgLetter = 'F';
         }
 
-        // Sort recent activity by date desc
-        allCompleted.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+        // 5. Combine and Sort Recent Activity (Syllabus + Activity Updates)
+        const activitiesData = loadData('activities_data', []);
+        const progressActivity = activitiesData.flatMap(activity =>
+            (activity.history || []).map(h => ({
+                id: `${activity.id}-${h.timestamp || h.date}`,
+                name: activity.name,
+                subjectName: `${h.from}% → ${h.to}%`, // Reuse subjectName field for consistency in UI
+                completedAt: h.timestamp || h.date,
+                type: 'activity'
+            }))
+        );
+
+        const combinedActivity = [...allCompleted, ...progressActivity]
+            .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
 
         setStats({
             pending: pendingCount,
@@ -152,7 +165,7 @@ const Dashboard = () => {
             avgGrade: avgLetter,
             avgPercent: avgPct
         });
-        setRecentActivity(allCompleted.slice(0, 5));
+        setRecentActivity(combinedActivity.slice(0, 3));
         setPendingAssignments(allPending.slice(0, 5));
     }, [tests]);
 
@@ -269,114 +282,135 @@ const Dashboard = () => {
                 />
             </div>
 
-            {/* Upcoming & Recent Tests */}
-            <div className="bg-surface/30 backdrop-blur-md p-6 rounded-2xl border border-white/5">
-                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                    <AlertCircle size={22} className="text-purple-500" /> Upcoming & Recent Tests
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {tests.sort((a, b) => new Date(b.date) - new Date(a.date))
-                        .map(test => {
-                            const isPassed = new Date(test.date) < new Date().setHours(0, 0, 0, 0);
-                            return (
-                                <div key={test.id} className={`p-5 bg-white/5 rounded-2xl border border-white/5 group relative ${isPassed ? 'border-primary/20' : ''} hover:bg-white/[0.08] transition-all`}>
-                                    <button
-                                        onClick={() => deleteTest(test.id)}
-                                        className="absolute top-3 right-3 p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                    <div className="flex flex-col gap-4">
-                                        <div className="flex items-start gap-3">
-                                            <div className={`p-2 rounded-xl ${isPassed ? 'bg-primary/10 text-primary' : 'bg-purple-500/10 text-purple-500'}`}>
-                                                <AlertCircle size={24} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="font-bold text-lg text-gray-100 leading-tight">{test.name}</p>
-                                                <p className="text-sm text-gray-400 mt-0.5">{test.subject}</p>
-                                                <p className="text-xs text-primary mt-2 font-bold uppercase tracking-wider">
-                                                    {new Date(test.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {isPassed && (
-                                            <div className="flex items-center gap-3 mt-2 pt-4 border-t border-white/10">
-                                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Score:</span>
-                                                <div className="flex items-center flex-1">
-                                                    <input
-                                                        type="number"
-                                                        placeholder="0"
-                                                        value={test.score || ''}
-                                                        onChange={(e) => updateTestScore(test.id, e.target.value)}
-                                                        className="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-primary focus:outline-none focus:border-primary text-center"
-                                                        min="0"
-                                                        max="100"
-                                                    />
-                                                    <span className="ml-2 text-sm font-bold text-primary">%</span>
+            {/* Tests & Tasks Overview Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Upcoming & Recent Tests (2/3 width) */}
+                <div className="lg:col-span-2 bg-surface/30 backdrop-blur-md p-6 rounded-2xl border border-white/5">
+                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                        <AlertCircle size={22} className="text-purple-500" /> Upcoming & Recent Tests
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {tests.sort((a, b) => new Date(b.date) - new Date(a.date))
+                            .map(test => {
+                                const isPassed = new Date(test.date) < new Date().setHours(0, 0, 0, 0);
+                                return (
+                                    <div key={test.id} className={`p-5 bg-white/5 rounded-2xl border border-white/5 group relative ${isPassed ? 'border-primary/20' : ''} hover:bg-white/[0.08] transition-all`}>
+                                        <button
+                                            onClick={() => deleteTest(test.id)}
+                                            className="absolute top-3 right-3 p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                        <div className="flex flex-col gap-4">
+                                            <div className="flex items-start gap-3">
+                                                <div className={`p-2 rounded-xl ${isPassed ? 'bg-primary/10 text-primary' : 'bg-purple-500/10 text-purple-500'}`}>
+                                                    <AlertCircle size={24} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="font-bold text-lg text-gray-100 leading-tight">{test.name}</p>
+                                                    <p className="text-sm text-gray-400 mt-0.5">{test.subject}</p>
+                                                    <p className="text-xs text-primary mt-2 font-bold uppercase tracking-wider">
+                                                        {new Date(test.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                    </p>
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    {tests.length === 0 && (
-                        <div className="col-span-full py-16 text-center border-2 border-dashed border-white/5 rounded-3xl">
-                            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
-                                <AlertCircle size={32} />
-                            </div>
-                            <p className="text-gray-500 font-bold mb-1">No tests scheduled</p>
-                            <p className="text-sm text-gray-600">Head over to the Daily Tracker to add your first test schedule!</p>
-                        </div>
-                    )}
-                </div>
-            </div>
 
-            {/* Recent Activity & Upcoming Assignments */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-surface/30 backdrop-blur-md p-6 rounded-2xl border border-white/5">
-                    <h2 className="text-xl font-bold mb-6">Recent Activity</h2>
-                    <div className="space-y-4">
-                        {recentActivity.length > 0 ? (
-                            recentActivity.map((item, i) => (
-                                <div key={i} className="flex items-center gap-4 p-3 hover:bg-white/5 rounded-xl transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary flex-shrink-0">
-                                        <CheckCircle size={18} />
+                                            {isPassed && (
+                                                <div className="flex items-center gap-3 mt-2 pt-4 border-t border-white/10">
+                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Score:</span>
+                                                    <div className="flex items-center flex-1">
+                                                        <input
+                                                            type="number"
+                                                            placeholder="0"
+                                                            value={test.score || ''}
+                                                            onChange={(e) => updateTestScore(test.id, e.target.value)}
+                                                            className="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-primary focus:outline-none focus:border-primary text-center"
+                                                            min="0"
+                                                            max="100"
+                                                        />
+                                                        <span className="ml-2 text-sm font-bold text-primary">%</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-medium">{item.name}</p>
-                                        <p className="text-xs text-gray-400">
-                                            Completed in {item.subjectName} • {new Date(item.completedAt).toLocaleDateString()}
-                                        </p>
-                                    </div>
+                                );
+                            })}
+                        {tests.length === 0 && (
+                            <div className="col-span-full py-16 text-center border-2 border-dashed border-white/5 rounded-3xl">
+                                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
+                                    <AlertCircle size={32} />
                                 </div>
-                            ))
-                        ) : (
-                            <p className="text-gray-500 text-center py-4">No completed tasks yet. Go finish some!</p>
+                                <p className="text-gray-500 font-bold mb-1">No tests scheduled</p>
+                                <p className="text-sm text-gray-600 text-balance px-4">Head over to the Daily Tracker to add your first test schedule!</p>
+                            </div>
                         )}
                     </div>
                 </div>
 
-                <div className="bg-surface/30 backdrop-blur-md p-6 rounded-2xl border border-white/5">
-                    <h2 className="text-xl font-bold mb-6 italic">Pending Assignments</h2>
-                    <div className="space-y-4">
+                {/* Pending Assignments (1/3 width) */}
+                <div className="lg:col-span-1 bg-surface/30 backdrop-blur-md p-6 rounded-2xl border border-white/5 flex flex-col">
+                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                        <BookOpen size={20} className="text-accent" /> Pending Tasks
+                    </h2>
+                    <div className="space-y-4 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
                         {pendingAssignments.length > 0 ? (
                             pendingAssignments.map((item) => (
-                                <div key={item.id} className="flex items-center gap-4 p-3 hover:bg-white/5 rounded-xl transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent flex-shrink-0">
+                                <div key={item.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl hover:bg-white/[0.08] transition-colors border border-transparent hover:border-white/5 group">
+                                    <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent flex-shrink-0 group-hover:scale-110 transition-transform">
                                         <BookOpen size={18} />
                                     </div>
                                     <div>
-                                        <p className="font-medium">{item.name}</p>
-                                        <p className="text-xs text-gray-400">{item.detail}</p>
+                                        <p className="font-bold text-sm text-gray-100">{item.name}</p>
+                                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.detail}</p>
                                     </div>
                                 </div>
                             ))
                         ) : (
-                            <p className="text-gray-500 text-center py-4">No pending homework. Great job!</p>
+                            <div className="py-20 text-center flex flex-col items-center">
+                                <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-4 text-gray-600">
+                                    <CheckCircle size={24} />
+                                </div>
+                                <p className="text-gray-500 font-bold">All caught up!</p>
+                                <p className="text-xs text-gray-600 mt-1">No pending homework. Enjoy your time! ✨</p>
+                            </div>
                         )}
                     </div>
+                </div>
+            </div>
+
+            {/* Recent Activity Section (Full Width) */}
+            <div className="bg-surface/30 backdrop-blur-md p-6 rounded-2xl border border-white/5">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        <TrendingUp size={20} className="text-primary" /> Recent Activity
+                    </h2>
+                    <Link to="/activities" className="text-sm text-primary hover:underline font-bold flex items-center gap-1">
+                        See All <Clock size={14} />
+                    </Link>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {recentActivity.length > 0 ? (
+                        recentActivity.map((item, i) => (
+                            <div key={i} className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl hover:bg-white/[0.08] transition-all border border-transparent hover:border-white/5 group">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:rotate-12 transition-transform
+                                    ${item.type === 'activity' ? 'bg-primary/10 text-primary' : 'bg-green-500/10 text-green-500'}
+                                `}>
+                                    {item.type === 'activity' ? <TrendingUp size={18} /> : <CheckCircle size={18} />}
+                                </div>
+                                <div>
+                                    <p className="font-bold text-sm text-gray-100">{item.name}</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        {item.subjectName} • {new Date(item.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                    </p>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="col-span-full py-12 text-center text-gray-600 border border-dashed border-white/5 rounded-3xl">
+                            No recent activity found. Start completing topics to see your progress here!
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
