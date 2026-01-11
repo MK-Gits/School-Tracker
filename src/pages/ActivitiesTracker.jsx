@@ -52,13 +52,13 @@ const ActivitiesTracker = () => {
                 <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-primary"
+                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-primary text-white"
                 >
-                    <option value="IXL">IXL</option>
-                    <option value="Sports">Sports</option>
-                    <option value="Music">Music</option>
-                    <option value="Coding">Coding</option>
-                    <option value="Other">Other</option>
+                    <option value="IXL" className="bg-[#1a1c20] text-white">IXL</option>
+                    <option value="Sports" className="bg-[#1a1c20] text-white">Sports</option>
+                    <option value="Music" className="bg-[#1a1c20] text-white">Music</option>
+                    <option value="Coding" className="bg-[#1a1c20] text-white">Coding</option>
+                    <option value="Other" className="bg-[#1a1c20] text-white">Other</option>
                 </select>
                 <input
                     type="text"

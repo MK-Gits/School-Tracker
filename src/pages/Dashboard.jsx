@@ -160,7 +160,7 @@ const Dashboard = () => {
                 />
                 <StatCard
                     title="Average Grade"
-                    value="A-"
+                    value="A"
                     subtitle="Top 10% of class"
                     icon={TrendingUp}
                     color="text-blue-500 bg-blue-500"
