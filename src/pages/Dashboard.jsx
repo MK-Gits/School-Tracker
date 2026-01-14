@@ -60,29 +60,14 @@ const Dashboard = () => {
                         });
                     }
                 } else {
-                    // Check legacy homework note
+                    // Only topics with homework notes are counted as pending tasks on the dashboard
                     if (topic.homework) {
                         pendingCount++;
                         allPending.push({
                             id: topic.id,
                             name: topic.homework,
                             detail: `${topic.name} • ${subject.name}`,
-                            type: 'legacy'
-                        });
-                    }
-
-                    // Check modern assignments array
-                    if (topic.assignments && topic.assignments.length > 0) {
-                        topic.assignments.forEach(assignment => {
-                            if (!assignment.completed) {
-                                pendingCount++;
-                                allPending.push({
-                                    id: assignment.id,
-                                    name: assignment.text,
-                                    detail: `${topic.name} • ${subject.name}`,
-                                    type: 'assignment'
-                                });
-                            }
+                            type: 'topic'
                         });
                     }
                 }
@@ -143,7 +128,7 @@ const Dashboard = () => {
             else avgLetter = 'F';
         }
 
-        // 5. Combine and Sort Recent Activity (Syllabus + Activity Updates)
+        // 5. Combine and Sort Recent Activity (Activity Updates only)
         const activitiesData = loadData('activities_data', []);
         const progressActivity = activitiesData.flatMap(activity =>
             (activity.history || []).map(h => ({
@@ -155,7 +140,7 @@ const Dashboard = () => {
             }))
         );
 
-        const combinedActivity = [...allCompleted, ...progressActivity]
+        const combinedActivity = [...progressActivity]
             .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
 
         setStats({
@@ -350,9 +335,12 @@ const Dashboard = () => {
 
                 {/* Pending Assignments (1/3 width) */}
                 <div className="lg:col-span-1 bg-surface/30 backdrop-blur-md p-6 rounded-2xl border border-white/5 flex flex-col">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <BookOpen size={20} className="text-accent" /> Pending Tasks
-                    </h2>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold flex items-center gap-2">
+                            <BookOpen size={20} className="text-accent" /> Pending Tasks
+                        </h2>
+                        <Link to="/daily" className="text-xs text-primary hover:underline font-bold">Manage in Tracker</Link>
+                    </div>
                     <div className="space-y-4 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
                         {pendingAssignments.length > 0 ? (
                             pendingAssignments.map((item) => (

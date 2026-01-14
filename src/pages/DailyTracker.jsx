@@ -120,8 +120,8 @@ const DailyTracker = () => {
 
     const pendingHomework = syllabusData.flatMap(subject =>
         subject.topics
-            .filter(topic => topic.status !== 'completed' && topic.homework)
-            .map(topic => ({ ...topic, subjectName: subject.name, subjectId: subject.id }))
+            .filter(topic => topic.status !== 'completed')
+            .map(topic => ({ ...topic, subjectName: subject.name, subjectId: subject.id, type: 'pending' }))
     );
 
     const completedCount = dailyTasks.filter(t => t.completed).length + completedTopics.length + activityUpdates.length;
@@ -331,26 +331,6 @@ const DailyTracker = () => {
                                     </motion.div>
                                 ))}
 
-                                {/* Completed Syllabus Topics */}
-                                {completedTopics.map((topic) => (
-                                    <motion.div
-                                        key={topic.id}
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        className="flex items-center gap-4 p-4 bg-primary/10 rounded-2xl border border-primary/20"
-                                    >
-                                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary flex-shrink-0">
-                                            <Book size={18} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-xs text-primary font-bold uppercase tracking-wider">{topic.subjectName}</p>
-                                            <p className="text-[15px] font-bold text-gray-100">Completed: {topic.name}</p>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-green-500">
-                                            <CheckCircle size={20} />
-                                        </div>
-                                    </motion.div>
-                                ))}
 
                                 {/* Activity Updates */}
                                 {activityUpdates.map((update) => (
@@ -383,7 +363,8 @@ const DailyTracker = () => {
                                     </motion.div>
                                 ))}
 
-                                {dailyTasks.length === 0 && completedTopics.length === 0 && activityUpdates.length === 0 && (
+
+                                {dailyTasks.length === 0 && activityUpdates.length === 0 && (
                                     <motion.div
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
@@ -393,50 +374,15 @@ const DailyTracker = () => {
                                             <CalendarIcon size={32} />
                                         </div>
                                         <p className="text-gray-500 font-medium">Nothing tracked for this date.</p>
-                                        <p className="text-sm text-gray-600 mt-1">Activities and syllabus updates will appear here automatically.</p>
+                                        <p className="text-sm text-gray-600 mt-1">Manual goals and skill updates will appear here.</p>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                         </div>
                     </div>
+
                 </div>
 
-                {/* Pending Homework Column (Moved to bottom or kept side if needed) */}
-                <div className="lg:col-span-3">
-                    <div className="bg-surface/50 backdrop-blur-xl p-6 rounded-2xl border border-white/5">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <Clock size={20} className="text-orange-500" /> Pending Homework
-                            </h2>
-                            <Link to="/syllabus" className="text-sm text-primary hover:underline font-medium">
-                                Refresh from Syllabus
-                            </Link>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {pendingHomework.length > 0 ? (
-                                pendingHomework.map((item) => (
-                                    <div key={item.id} className="p-4 bg-white/5 rounded-2xl border-l-4 border-orange-500/50 hover:bg-white/[0.08] transition-colors group">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{item.subjectName}</span>
-                                            <button
-                                                onClick={() => toggleHomework(item.subjectId, item.id, item.status)}
-                                                className="text-gray-500 hover:text-green-500 transition-colors"
-                                            >
-                                                <Circle size={18} />
-                                            </button>
-                                        </div>
-                                        <p className="font-bold text-gray-100 mb-1 group-hover:text-primary transition-colors">{item.name}</p>
-                                        <p className="text-xs text-gray-400 leading-relaxed">{item.homework}</p>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="col-span-full py-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
-                                    <p className="text-gray-500 font-medium">No pending homework! Enjoy your time. ✨</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     );

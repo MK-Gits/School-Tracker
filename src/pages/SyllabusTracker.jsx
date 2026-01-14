@@ -25,21 +25,29 @@ const SyllabusTracker = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
-        saveData('syllabus_data', subjects);
-    }, [subjects]);
+        const handleStorage = () => {
+            setSubjects(loadData('syllabus_data', []));
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, []);
 
     const addSubject = () => {
         if (!newSubject.trim()) return;
-        setSubjects([...subjects, {
+        const updatedSubjects = [...subjects, {
             id: Date.now(),
             name: newSubject,
             topics: []
-        }]);
+        }];
+        setSubjects(updatedSubjects);
+        saveData('syllabus_data', updatedSubjects);
         setNewSubject('');
     };
 
     const deleteSubject = (id) => {
-        setSubjects(subjects.filter(s => s.id !== id));
+        const updatedSubjects = subjects.filter(s => s.id !== id);
+        setSubjects(updatedSubjects);
+        saveData('syllabus_data', updatedSubjects);
     };
 
     const addTopic = (subjectId) => {
@@ -83,7 +91,7 @@ const SyllabusTracker = () => {
     };
 
     const updateTopicStatus = (subjectId, topicId, status) => {
-        setSubjects(subjects.map(s => {
+        const updatedSubjects = subjects.map(s => {
             if (s.id === subjectId) {
                 return {
                     ...s,
@@ -95,11 +103,13 @@ const SyllabusTracker = () => {
                 };
             }
             return s;
-        }));
+        });
+        setSubjects(updatedSubjects);
+        saveData('syllabus_data', updatedSubjects);
     };
 
     const updateTopicHomework = (subjectId, topicId, homework) => {
-        setSubjects(subjects.map(s => {
+        const updatedSubjects = subjects.map(s => {
             if (s.id === subjectId) {
                 return {
                     ...s,
@@ -107,7 +117,9 @@ const SyllabusTracker = () => {
                 };
             }
             return s;
-        }));
+        });
+        setSubjects(updatedSubjects);
+        saveData('syllabus_data', updatedSubjects);
     };
 
     const deleteTopic = (subjectId, topicId) => {
@@ -122,8 +134,9 @@ const SyllabusTracker = () => {
         }));
     };
 
-    // Assignment Handlers
-    const addAssignment = (subjectId, topicId, text) => {
+
+    // Topic Task Handlers (Internal for organization)
+    const addTopicTask = (subjectId, topicId, text) => {
         if (!text.trim()) return;
         setSubjects(subjects.map(s => {
             if (s.id === subjectId) {
@@ -131,8 +144,8 @@ const SyllabusTracker = () => {
                     ...s,
                     topics: s.topics.map(t => {
                         if (t.id === topicId) {
-                            const newAssignments = [...(t.assignments || []), { id: Date.now(), text, completed: false }];
-                            return { ...t, assignments: newAssignments };
+                            const newTasks = [...(t.tasks || []), { id: Date.now(), text, completed: false }];
+                            return { ...t, tasks: newTasks };
                         }
                         return t;
                     })
@@ -142,26 +155,17 @@ const SyllabusTracker = () => {
         }));
     };
 
-    const toggleAssignment = (subjectId, topicId, assignmentId) => {
+    const toggleTopicTask = (subjectId, topicId, taskId) => {
         setSubjects(subjects.map(s => {
             if (s.id === subjectId) {
                 return {
                     ...s,
                     topics: s.topics.map(t => {
                         if (t.id === topicId) {
-                            const newAssignments = (t.assignments || []).map(a =>
-                                a.id === assignmentId ? { ...a, completed: !a.completed } : a
+                            const newTasks = (t.tasks || []).map(task =>
+                                task.id === taskId ? { ...task, completed: !task.completed } : task
                             );
-
-                            // Auto-complete topic if all assignments are done
-                            const allCompleted = newAssignments.length > 0 && newAssignments.every(a => a.completed);
-
-                            return {
-                                ...t,
-                                assignments: newAssignments,
-                                status: allCompleted ? 'completed' : 'pending',
-                                completedAt: allCompleted ? new Date().toISOString() : (t.status === 'completed' ? null : t.completedAt)
-                            };
+                            return { ...t, tasks: newTasks };
                         }
                         return t;
                     })
@@ -171,7 +175,7 @@ const SyllabusTracker = () => {
         }));
     };
 
-    const deleteAssignment = (subjectId, topicId, assignmentId) => {
+    const deleteTopicTask = (subjectId, topicId, taskId) => {
         setSubjects(subjects.map(s => {
             if (s.id === subjectId) {
                 return {
@@ -180,7 +184,7 @@ const SyllabusTracker = () => {
                         if (t.id === topicId) {
                             return {
                                 ...t,
-                                assignments: (t.assignments || []).filter(a => a.id !== assignmentId)
+                                tasks: (t.tasks || []).filter(task => task.id !== taskId)
                             };
                         }
                         return t;
@@ -199,7 +203,9 @@ const SyllabusTracker = () => {
 
     const saveSubject = (id) => {
         if (!editSubjectName.trim()) return;
-        setSubjects(subjects.map(s => s.id === id ? { ...s, name: editSubjectName } : s));
+        const updatedSubjects = subjects.map(s => s.id === id ? { ...s, name: editSubjectName } : s);
+        setSubjects(updatedSubjects);
+        saveData('syllabus_data', updatedSubjects);
         setEditingSubjectId(null);
     };
 
@@ -211,24 +217,24 @@ const SyllabusTracker = () => {
 
     const saveTopic = (subjectId, topicId) => {
         if (!editTopicName.trim()) return;
-        setSubjects(subjects.map(s => {
+        const updatedSubjects = subjects.map(s => {
             if (s.id === subjectId) {
                 return {
                     ...s,
-                    topics: s.topics.map(t => t.id === topicId ? {
-                        ...t,
-                        name: editTopicName,
-                        ixl: editTopicIXL
-                    } : t)
+                    topics: s.topics.map(t => t.id === topicId ? { ...t, name: editTopicName, ixl: editTopicIXL } : t)
                 };
             }
             return s;
-        }));
+        });
+        setSubjects(updatedSubjects);
+        saveData('syllabus_data', updatedSubjects);
         setEditingTopicId(null);
     };
 
     const reorderTopics = (subjectId, newTopics) => {
-        setSubjects(subjects.map(s => s.id === subjectId ? { ...s, topics: newTopics } : s));
+        const updatedSubjects = subjects.map(s => s.id === subjectId ? { ...s, topics: newTopics } : s);
+        setSubjects(updatedSubjects);
+        saveData('syllabus_data', updatedSubjects);
     };
 
     const loadCurriculum = () => {
@@ -511,39 +517,39 @@ const SyllabusTracker = () => {
                                                                                 </div>
                                                                             )}
 
-                                                                            {/* Assignments List */}
+                                                                            {/* Internal Topic Tasks */}
                                                                             <div className="space-y-1">
-                                                                                {topic.assignments && topic.assignments.map((assignment) => (
-                                                                                    <div key={assignment.id} className="flex items-center gap-2 group/item">
+                                                                                {topic.tasks && topic.tasks.map((task) => (
+                                                                                    <div key={task.id} className="flex items-center gap-2 group/item">
                                                                                         <input
                                                                                             type="checkbox"
-                                                                                            checked={assignment.completed}
-                                                                                            onChange={() => toggleAssignment(subject.id, topic.id, assignment.id)}
-                                                                                            className="rounded border-white/20 bg-white/5 text-primary focus:ring-primary"
+                                                                                            checked={task.completed}
+                                                                                            onChange={() => toggleTopicTask(subject.id, topic.id, task.id)}
+                                                                                            className="rounded border-white/20 bg-white/5 text-primary focus:ring-primary h-3 w-3"
                                                                                         />
-                                                                                        <span className={`text-sm ${assignment.completed ? 'text-gray-500 line-through' : 'text-gray-300'}`}>
-                                                                                            {assignment.text}
+                                                                                        <span className={`text-xs ${task.completed ? 'text-gray-500 line-through' : 'text-gray-300'}`}>
+                                                                                            {task.text}
                                                                                         </span>
                                                                                         <button
-                                                                                            onClick={() => deleteAssignment(subject.id, topic.id, assignment.id)}
-                                                                                            className="opacity-0 group-hover/item:opacity-100 p-1 text-red-500 hover:bg-red-500/10 rounded transition-all"
+                                                                                            onClick={() => deleteTopicTask(subject.id, topic.id, task.id)}
+                                                                                            className="opacity-0 group-hover/item:opacity-100 p-0.5 text-red-500 hover:bg-red-500/10 rounded transition-all"
                                                                                         >
-                                                                                            <X size={12} />
+                                                                                            <X size={10} />
                                                                                         </button>
                                                                                     </div>
                                                                                 ))}
                                                                             </div>
 
-                                                                            {/* Add Assignment Input */}
+                                                                            {/* Add Task Input */}
                                                                             <div className="flex items-center gap-2 mt-2">
-                                                                                <Plus size={14} className="text-gray-500" />
+                                                                                <Plus size={12} className="text-gray-500" />
                                                                                 <input
                                                                                     type="text"
                                                                                     placeholder="Add task (e.g., Read p.10)"
-                                                                                    className="flex-1 bg-transparent border-b border-white/10 focus:border-primary px-2 py-1 text-sm focus:outline-none"
+                                                                                    className="flex-1 bg-transparent border-b border-white/10 focus:border-primary px-2 py-0.5 text-xs focus:outline-none"
                                                                                     onKeyDown={(e) => {
                                                                                         if (e.key === 'Enter') {
-                                                                                            addAssignment(subject.id, topic.id, e.target.value);
+                                                                                            addTopicTask(subject.id, topic.id, e.target.value);
                                                                                             e.target.value = '';
                                                                                         }
                                                                                     }}

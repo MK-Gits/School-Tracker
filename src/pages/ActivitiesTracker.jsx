@@ -4,32 +4,23 @@ import { Plus, Trash2, Trophy, Star, Activity as ActivityIcon, CheckCircle, Cloc
 import { loadData, saveData } from '../utils/storage';
 
 const ActivitiesTracker = () => {
-    const [activities, setActivities] = useState([]);
+    const [activities, setActivities] = useState(() => loadData('activities_data', []));
     const [newActivity, setNewActivity] = useState('');
     const [category, setCategory] = useState('IXL'); // IXL, Sports, Music, etc.
 
-    const [syllabusData, setSyllabusData] = useState([]);
+    const [syllabusData, setSyllabusData] = useState(() => loadData('syllabus_data', []));
     const [recentActivity, setRecentActivity] = useState([]);
 
     useEffect(() => {
-        setActivities(loadData('activities_data', []));
-        setSyllabusData(loadData('syllabus_data', []));
+        const handleStorage = () => {
+            setActivities(loadData('activities_data', []));
+            setSyllabusData(loadData('syllabus_data', []));
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
     }, []);
 
     useEffect(() => {
-        // Combine recent activity (Syllabus completions + Activity updates)
-        const syllabusActivity = syllabusData.flatMap(subject =>
-            subject.topics
-                .filter(topic => topic.status === 'completed' && topic.completedAt)
-                .map(topic => ({
-                    id: topic.id,
-                    name: topic.name,
-                    detail: subject.name,
-                    date: topic.completedAt,
-                    type: 'syllabus'
-                }))
-        );
-
         const progressActivity = activities.flatMap(activity =>
             (activity.history || []).map(h => ({
                 id: `${activity.id}-${h.timestamp || h.date}`,
@@ -40,35 +31,36 @@ const ActivitiesTracker = () => {
             }))
         );
 
-        const combined = [...syllabusActivity, ...progressActivity]
+        const combined = [...progressActivity]
             .sort((a, b) => new Date(b.date) - new Date(a.date));
 
         setRecentActivity(combined);
     }, [activities, syllabusData]);
 
-    useEffect(() => {
-        saveData('activities_data', activities);
-    }, [activities]);
 
     const addActivity = () => {
         if (!newActivity.trim()) return;
-        setActivities([...activities, {
+        const updatedActivities = [...activities, {
             id: Date.now(),
             name: newActivity,
             category,
             progress: 0,
             notes: ''
-        }]);
+        }];
+        setActivities(updatedActivities);
+        saveData('activities_data', updatedActivities);
         setNewActivity('');
     };
 
     const deleteActivity = (id) => {
-        setActivities(activities.filter(a => a.id !== id));
+        const updatedActivities = activities.filter(a => a.id !== id);
+        setActivities(updatedActivities);
+        saveData('activities_data', updatedActivities);
     };
 
     const updateProgress = (id, progress) => {
         const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-        setActivities(activities.map(a => {
+        const updatedActivities = activities.map(a => {
             if (a.id === id) {
                 const newProgress = Math.min(100, Math.max(0, progress));
                 const history = a.history || [];
@@ -87,11 +79,15 @@ const ActivitiesTracker = () => {
                 }
             }
             return a;
-        }));
+        });
+        setActivities(updatedActivities);
+        saveData('activities_data', updatedActivities);
     };
 
     const updateNotes = (id, notes) => {
-        setActivities(activities.map(a => a.id === id ? { ...a, notes } : a));
+        const updatedActivities = activities.map(a => a.id === id ? { ...a, notes } : a);
+        setActivities(updatedActivities);
+        saveData('activities_data', updatedActivities);
     };
 
     return (
