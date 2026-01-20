@@ -82,5 +82,21 @@ export const georgia8thGradeData = [
             { name: "Language: Advanced Grammar and Usage", ixl: "QQ.1" },
             { name: "Language: Vocabulary Acquisition", ixl: "V.1" }
         ]
+    },
+    {
+        name: "Chorus",
+        topics: [
+            { name: "Music Theory & Sight Reading", ixl: "" },
+            { name: "Vocal Technique & Performance", ixl: "" },
+            { name: "Choral Literature & History", ixl: "" }
+        ]
+    },
+    {
+        name: "Band",
+        topics: [
+            { name: "Instrumental Technique", ixl: "" },
+            { name: "Music Theory & Notation", ixl: "" },
+            { name: "Ensemble Performance", ixl: "" }
+        ]
     }
 ];

@@ -281,6 +281,7 @@ const SyllabusTracker = () => {
         });
 
         setSubjects(newSubjects);
+        saveData('syllabus_data', newSubjects);
         saveData('activities_data', activities);
     };
 
