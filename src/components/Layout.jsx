@@ -11,6 +11,7 @@ const Layout = ({ children }) => {
         { path: '/', label: 'Dashboard', icon: LayoutDashboard },
         { path: '/daily', label: 'Daily Tracker', icon: Calendar },
         { path: '/syllabus', label: 'Syllabus', icon: BookOpen },
+        { path: '/gradebook', label: 'Gradebook', icon: Calculator },
         { path: '/activities', label: 'Activities', icon: Activity },
         { path: '/notes', label: 'Study Notes', icon: Calculator },
     ];

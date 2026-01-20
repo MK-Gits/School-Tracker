@@ -10,6 +10,8 @@ import ActivitiesTracker from './pages/ActivitiesTracker';
 import StudyNotes from './pages/StudyNotes';
 import DailyTracker from './pages/DailyTracker';
 
+import Gradebook from './pages/Gradebook';
+
 function App() {
   return (
     <Router>
@@ -18,6 +20,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/daily" element={<DailyTracker />} />
           <Route path="/syllabus" element={<SyllabusTracker />} />
+          <Route path="/gradebook" element={<Gradebook />} />
           <Route path="/activities" element={<ActivitiesTracker />} />
           <Route path="/notes" element={<StudyNotes />} />
         </Routes>
