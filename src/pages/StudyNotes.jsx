@@ -99,14 +99,14 @@ const StudyNotes = () => {
                                 <select
                                     value={newNote.category}
                                     onChange={(e) => setNewNote({ ...newNote, category: e.target.value })}
-                                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-primary"
+                                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-primary text-white"
                                 >
-                                    <option value="Math">Math</option>
-                                    <option value="Physics">Physics</option>
-                                    <option value="Chemistry">Chemistry</option>
-                                    <option value="Biology">Biology</option>
-                                    <option value="History">History</option>
-                                    <option value="Other">Other</option>
+                                    <option value="Math" className="bg-[#1a1c20]">Math</option>
+                                    <option value="Physics" className="bg-[#1a1c20]">Physics</option>
+                                    <option value="Chemistry" className="bg-[#1a1c20]">Chemistry</option>
+                                    <option value="Biology" className="bg-[#1a1c20]">Biology</option>
+                                    <option value="History" className="bg-[#1a1c20]">History</option>
+                                    <option value="Other" className="bg-[#1a1c20]">Other</option>
                                 </select>
                             </div>
                             <textarea
@@ -162,14 +162,14 @@ const StudyNotes = () => {
                                     <select
                                         value={editNoteData.category}
                                         onChange={(e) => setEditNoteData({ ...editNoteData, category: e.target.value })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary text-white"
                                     >
-                                        <option value="Math">Math</option>
-                                        <option value="Physics">Physics</option>
-                                        <option value="Chemistry">Chemistry</option>
-                                        <option value="Biology">Biology</option>
-                                        <option value="History">History</option>
-                                        <option value="Other">Other</option>
+                                        <option value="Math" className="bg-[#1a1c20]">Math</option>
+                                        <option value="Physics" className="bg-[#1a1c20]">Physics</option>
+                                        <option value="Chemistry" className="bg-[#1a1c20]">Chemistry</option>
+                                        <option value="Biology" className="bg-[#1a1c20]">Biology</option>
+                                        <option value="History" className="bg-[#1a1c20]">History</option>
+                                        <option value="Other" className="bg-[#1a1c20]">Other</option>
                                     </select>
                                     <textarea
                                         value={editNoteData.content}
