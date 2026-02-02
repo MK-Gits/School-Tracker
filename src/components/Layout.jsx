@@ -42,12 +42,10 @@ const Layout = ({ children }) => {
 
             {/* Sidebar */}
             <motion.aside
-                className={`fixed md:relative z-50 w-64 h-screen bg-surface/50 backdrop-blur-xl border-r border-white/10 flex flex-col
+                className={`fixed md:relative z-50 w-64 h-screen bg-surface/50 backdrop-blur-xl border-r border-white/10 flex flex-col transition-transform duration-300 ease-in-out
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
                 initial={false}
-                animate={{ x: isSidebarOpen ? 0 : 0 }} // Simplified for now, responsive handling is tricky with pure framer-motion without media query hook, relying on CSS classes
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
                 <div className="p-6 flex items-center justify-between">
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">

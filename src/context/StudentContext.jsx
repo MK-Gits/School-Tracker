@@ -17,7 +17,7 @@ export const StudentProvider = ({ children }) => {
         const stored = loadData('profiles_list', []);
         // Migration: If no profiles exist but legacy data might, create a default profile
         if (stored.length === 0) {
-            return [{ id: 'default', name: 'Student 1', grade: '8th' }];
+            return [{ id: 'default', name: 'student', grade: '8th' }];
         }
         return stored;
     });
