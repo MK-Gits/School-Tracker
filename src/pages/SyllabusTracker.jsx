@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { Plus, Trash2, ChevronDown, ChevronUp, Book, CheckCircle, Circle, Trophy, Download, Edit2, X, Save, GripVertical } from 'lucide-react';
 import { loadData, saveData } from '../utils/storage';
@@ -32,7 +33,7 @@ const SyllabusTracker = () => {
         return () => window.removeEventListener('storage', handleStorage);
     }, []);
 
-    const addSubject = () => {
+    const addSubject = useCallback(() => {
         if (!newSubject.trim()) return;
         const updatedSubjects = [...subjects, {
             id: Date.now(),
@@ -42,7 +43,7 @@ const SyllabusTracker = () => {
         setSubjects(updatedSubjects);
         saveData('syllabus_data', updatedSubjects);
         setNewSubject('');
-    };
+    }, [subjects, newSubject]);
 
     const deleteSubject = (id) => {
         const updatedSubjects = subjects.filter(s => s.id !== id);
@@ -50,7 +51,7 @@ const SyllabusTracker = () => {
         saveData('syllabus_data', updatedSubjects);
     };
 
-    const addTopic = (subjectId) => {
+    const addTopic = useCallback((subjectId) => {
         if (!newTopicName.trim()) return;
 
         const topicId = Date.now();
@@ -88,7 +89,7 @@ const SyllabusTracker = () => {
 
         setNewTopicName('');
         setNewTopicIXL('');
-    };
+    }, [subjects, newTopicName, newTopicIXL]);
 
     const updateTopicStatus = (subjectId, topicId, status) => {
         const updatedSubjects = subjects.map(s => {
@@ -108,12 +109,12 @@ const SyllabusTracker = () => {
         saveData('syllabus_data', updatedSubjects);
     };
 
-    const updateTopicHomework = (subjectId, topicId, homework) => {
+    const deleteTopic = (subjectId, topicId) => {
         const updatedSubjects = subjects.map(s => {
             if (s.id === subjectId) {
                 return {
                     ...s,
-                    topics: s.topics.map(t => t.id === topicId ? { ...t, homework } : t)
+                    topics: s.topics.filter(t => t.id !== topicId)
                 };
             }
             return s;
@@ -122,23 +123,11 @@ const SyllabusTracker = () => {
         saveData('syllabus_data', updatedSubjects);
     };
 
-    const deleteTopic = (subjectId, topicId) => {
-        setSubjects(subjects.map(s => {
-            if (s.id === subjectId) {
-                return {
-                    ...s,
-                    topics: s.topics.filter(t => t.id !== topicId)
-                };
-            }
-            return s;
-        }));
-    };
-
 
     // Topic Task Handlers (Internal for organization)
     const addTopicTask = (subjectId, topicId, text) => {
         if (!text.trim()) return;
-        setSubjects(subjects.map(s => {
+        const updatedSubjects = subjects.map(s => {
             if (s.id === subjectId) {
                 return {
                     ...s,
@@ -152,11 +141,13 @@ const SyllabusTracker = () => {
                 };
             }
             return s;
-        }));
+        });
+        setSubjects(updatedSubjects);
+        saveData('syllabus_data', updatedSubjects);
     };
 
     const toggleTopicTask = (subjectId, topicId, taskId) => {
-        setSubjects(subjects.map(s => {
+        const updatedSubjects = subjects.map(s => {
             if (s.id === subjectId) {
                 return {
                     ...s,
@@ -172,11 +163,13 @@ const SyllabusTracker = () => {
                 };
             }
             return s;
-        }));
+        });
+        setSubjects(updatedSubjects);
+        saveData('syllabus_data', updatedSubjects);
     };
 
     const deleteTopicTask = (subjectId, topicId, taskId) => {
-        setSubjects(subjects.map(s => {
+        const updatedSubjects = subjects.map(s => {
             if (s.id === subjectId) {
                 return {
                     ...s,
@@ -192,7 +185,9 @@ const SyllabusTracker = () => {
                 };
             }
             return s;
-        }));
+        });
+        setSubjects(updatedSubjects);
+        saveData('syllabus_data', updatedSubjects);
     };
 
     // Edit Handlers

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, Trophy, Star, Activity as ActivityIcon, CheckCircle, Clock, TrendingUp } from 'lucide-react';
 import { loadData, saveData } from '../utils/storage';
@@ -32,8 +33,13 @@ const ActivitiesTracker = () => {
         );
 
         const combined = [...progressActivity]
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .map(item => ({
+                ...item,
+                formattedDate: new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            }));
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setRecentActivity(combined);
     }, [activities, syllabusData]);
 
@@ -209,7 +215,7 @@ const ActivitiesTracker = () => {
                                     <p className="font-bold text-sm text-gray-100">{item.name}</p>
                                     <p className="text-xs text-gray-400 mt-0.5">{item.detail}</p>
                                     <p className="text-[10px] text-gray-500 mt-2 font-bold uppercase tracking-wider flex items-center gap-1">
-                                        <Clock size={10} /> {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        <Clock size={10} /> {item.formattedDate || new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                 </div>
                             </div>

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Circle, Plus, Calendar as CalendarIcon, Clock, ArrowRight, ChevronLeft, ChevronRight, Book, Trophy, TrendingUp, AlertCircle } from 'lucide-react';
 import { loadData, saveData } from '../utils/storage';
-import { formatDateKey, parseLocalDate } from '../utils/dateUtils';
+import { formatDateKey } from '../utils/dateUtils';
 import { Link } from 'react-router-dom';
 
 const DailyTracker = () => {
@@ -22,7 +23,7 @@ const DailyTracker = () => {
     const [viewDate, setViewDate] = useState(new Date()); // For calendar navigation
     const [newTest, setNewTest] = useState({ subject: '', name: '', date: '' });
 
-    const dateKey = formatDateKey(selectedDate);
+    const dateKey = useMemo(() => formatDateKey(selectedDate), [selectedDate]);
 
     useEffect(() => {
         // We sync from storage if and only if it changes externally
@@ -39,40 +40,21 @@ const DailyTracker = () => {
     // No longer using useEffect for saving to avoid race conditions on mount/unmount
     // Each action now saves directly
 
-    const dailyTasks = allDailyTasks[dateKey] || [];
+    const dailyTasks = useMemo(() => allDailyTasks[dateKey] || [], [allDailyTasks, dateKey]);
 
     // Filter auto-logged items for the selected date
-    const completedTopics = syllabusData.flatMap(s =>
+    const completedTopics = useMemo(() => syllabusData.flatMap(s =>
         s.topics.filter(t => t.completedAt && formatDateKey(t.completedAt) === dateKey)
             .map(t => ({ ...t, subjectName: s.name, type: 'syllabus' }))
-    );
+    ), [syllabusData, dateKey]);
 
-    const activityUpdates = activitiesData.flatMap(a => {
+    const activityUpdates = useMemo(() => activitiesData.flatMap(a => {
         const historyEntry = (a.history || []).find(h => h.date === dateKey);
         if (historyEntry) {
             return [{ ...a, ...historyEntry, type: 'activity' }];
         }
         return [];
-    });
-
-    const toggleHomework = (subjectId, topicId, currentStatus) => {
-        const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
-        const updatedSyllabus = syllabusData.map(s => {
-            if (s.id === subjectId) {
-                return {
-                    ...s,
-                    topics: s.topics.map(t => t.id === topicId ? {
-                        ...t,
-                        status: newStatus,
-                        completedAt: newStatus === 'completed' ? new Date().toISOString() : null
-                    } : t)
-                };
-            }
-            return s;
-        });
-        setSyllabusData(updatedSyllabus);
-        saveData('syllabus_data', updatedSyllabus);
-    };
+    }), [activitiesData, dateKey]);
 
     const addDailyTask = () => {
         if (!newTask.trim()) return;
@@ -114,31 +96,59 @@ const DailyTracker = () => {
         alert('Test scheduled successfully! Check it on your Dashboard.');
     };
 
-    const pendingHomework = syllabusData.flatMap(subject =>
-        subject.topics
-            .filter(topic => topic.status !== 'completed')
-            .map(topic => ({ ...topic, subjectName: subject.name, subjectId: subject.id, type: 'pending' }))
-    );
-
-    const completedCount = dailyTasks.filter(t => t.completed).length + completedTopics.length + activityUpdates.length;
-    const totalCount = dailyTasks.length + completedTopics.length + activityUpdates.length;
-    const progress = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+    const { completedCount, progress } = useMemo(() => {
+        const c = dailyTasks.filter(t => t.completed).length + completedTopics.length + activityUpdates.length;
+        const t = dailyTasks.length + completedTopics.length + activityUpdates.length;
+        const p = t === 0 ? 0 : Math.round((c / t) * 100);
+        return { completedCount: c, progress: p };
+    }, [dailyTasks, completedTopics, activityUpdates]);
 
     // Calendar logic
-    const getDaysInMonth = (date) => {
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        const days = new Date(year, month + 1, 0).getDate();
-        const firstDay = new Date(year, month, 1).getDay();
-        return { days, firstDay };
-    };
+    const calendarData = useMemo(() => {
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+        const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+        const firstDayOfMonth = new Date(year, month, 1).getDay();
+        const monthName = viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-    const { days, firstDay } = getDaysInMonth(viewDate);
-    const monthYear = viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+        const daysArray = [];
+        for (let i = 1; i <= lastDayOfMonth; i++) {
+            const dateObj = new Date(year, month, i);
+            const dateStr = formatDateKey(dateObj);
+            const isToday = formatDateKey(new Date()) === dateStr;
+            const hasTasks = (allDailyTasks[dateStr] && allDailyTasks[dateStr].length > 0) ||
+                syllabusData.some(s => s.topics.some(t => t.completedAt && formatDateKey(t.completedAt) === dateStr)) ||
+                activitiesData.some(a => (a.history || []).some(h => h.date === dateStr));
+
+            daysArray.push({
+                day: i,
+                date: dateObj,
+                dateStr,
+                isToday,
+                hasTasks
+            });
+        }
+
+        return {
+            days: daysArray,
+            firstDay: firstDayOfMonth,
+            monthYear: monthName
+        };
+    }, [viewDate, allDailyTasks, syllabusData, activitiesData]);
 
     const changeMonth = (offset) => {
-        setViewDate(new Date(viewDate.setMonth(viewDate.getMonth() + offset)));
+        setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1));
     };
+
+    const formattedSelectedDate = useMemo(() =>
+        selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
+        [selectedDate]
+    );
+
+    const formattedLogDate = useMemo(() =>
+        dateKey === formatDateKey(new Date()) ? 'Today' : selectedDate.toLocaleDateString(),
+        [dateKey, selectedDate]
+    );
 
     return (
         <div className="space-y-8">
@@ -149,7 +159,7 @@ const DailyTracker = () => {
                 </div>
                 <div className="bg-surface/50 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/5 flex items-center gap-3">
                     <CalendarIcon size={18} className="text-primary" />
-                    <span className="font-medium">{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                    <span className="font-medium">{formattedSelectedDate}</span>
                 </div>
             </div>
 
@@ -168,7 +178,7 @@ const DailyTracker = () => {
                     {/* Premium Calendar */}
                     <div className="bg-surface/50 backdrop-blur-xl p-5 rounded-2xl border border-white/5 shadow-2xl">
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-bold text-lg">{monthYear}</h3>
+                            <h3 className="font-bold text-lg">{calendarData.monthYear}</h3>
                             <div className="flex gap-2">
                                 <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-white/5 rounded-lg transition-colors border border-white/5">
                                     <ChevronLeft size={18} />
@@ -186,31 +196,23 @@ const DailyTracker = () => {
                         </div>
 
                         <div className="grid grid-cols-7 gap-1">
-                            {[...Array(firstDay)].map((_, i) => <div key={`empty-${i}`} />)}
-                            {[...Array(days)].map((_, i) => {
-                                const day = i + 1;
-                                const isSelected = selectedDate.getDate() === day && selectedDate.getMonth() === viewDate.getMonth() && selectedDate.getFullYear() === viewDate.getFullYear();
-                                const isToday = new Date().getDate() === day && new Date().getMonth() === viewDate.getMonth() && new Date().getFullYear() === viewDate.getFullYear();
-
-                                // Check if there are tasks for this day
-                                const dateStr = formatDateKey(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
-                                const hasTasks = (allDailyTasks[dateStr] && allDailyTasks[dateStr].length > 0) ||
-                                    syllabusData.some(s => s.topics.some(t => t.completedAt && formatDateKey(t.completedAt) === dateStr)) ||
-                                    activitiesData.some(a => (a.history || []).some(h => h.date === dateStr));
+                            {[...Array(calendarData.firstDay)].map((_, i) => <div key={`empty-${i}`} />)}
+                            {calendarData.days.map((dayObj) => {
+                                const isSelected = dateKey === dayObj.dateStr;
 
                                 return (
                                     <button
-                                        key={day}
-                                        onClick={() => setSelectedDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day))}
+                                        key={dayObj.day}
+                                        onClick={() => setSelectedDate(dayObj.date)}
                                         className={`
                                             relative h-10 w-full flex items-center justify-center rounded-xl text-sm font-medium transition-all
                                             ${isSelected ? 'bg-primary text-white shadow-lg shadow-primary/30 scale-105 z-10' :
-                                                isToday ? 'bg-primary/10 text-primary border border-primary/20' :
+                                                dayObj.isToday ? 'bg-primary/10 text-primary border border-primary/20' :
                                                     'hover:bg-white/5 text-gray-400 hover:text-white'}
                                         `}
                                     >
-                                        {day}
-                                        {hasTasks && !isSelected && (
+                                        {dayObj.day}
+                                        {dayObj.hasTasks && !isSelected && (
                                             <div className="absolute bottom-1.5 w-1 h-1 rounded-full bg-primary" />
                                         )}
                                     </button>
@@ -277,7 +279,7 @@ const DailyTracker = () => {
                             <h2 className="text-xl font-bold flex items-center gap-2">
                                 <CalendarIcon size={20} className="text-accent" /> Activity Log
                             </h2>
-                            <span className="text-sm text-gray-500 font-medium">{dateKey === formatDateKey(new Date()) ? 'Today' : selectedDate.toLocaleDateString()}</span>
+                            <span className="text-sm text-gray-500 font-medium">{formattedLogDate}</span>
                         </div>
 
                         <div className="flex gap-4 mb-6">

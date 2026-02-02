@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calculator, TrendingUp, Calendar, Trash2, CheckCircle, AlertCircle, Save, X, BookOpen } from 'lucide-react';
 import { loadData, saveData } from '../utils/storage';
