@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Circle, Plus, Calendar as CalendarIcon, Clock, ArrowRight, ChevronLeft, ChevronRight, Book, Trophy, TrendingUp, AlertCircle } from 'lucide-react';
 import { loadData, saveData } from '../utils/storage';
+import { formatDateKey, parseLocalDate } from '../utils/dateUtils';
 import { Link } from 'react-router-dom';
 
 const DailyTracker = () => {
@@ -20,11 +21,6 @@ const DailyTracker = () => {
     const [newTask, setNewTask] = useState('');
     const [viewDate, setViewDate] = useState(new Date()); // For calendar navigation
     const [newTest, setNewTest] = useState({ subject: '', name: '', date: '' });
-
-    const formatDateKey = (date) => {
-        const d = new Date(date);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    };
 
     const dateKey = formatDateKey(selectedDate);
 

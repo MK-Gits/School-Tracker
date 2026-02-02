@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { CheckCircle, Clock, TrendingUp, AlertCircle, BookOpen, Download, Upload, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle, Clock, TrendingUp, AlertCircle, BookOpen, Download, Upload, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { loadData, saveData } from '../utils/storage';
+import { parseLocalDate, formatDateKey, startOfLocalDate } from '../utils/dateUtils';
 import { Link } from 'react-router-dom';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color }) => (
@@ -35,11 +36,12 @@ const Dashboard = () => {
     const [pendingAssignments, setPendingAssignments] = useState([]);
     const [tests, setTests] = useState([]);
     const [nextTest, setNextTest] = useState(null);
+    const [isCompletedTestsOpen, setIsCompletedTestsOpen] = useState(false);
 
     useEffect(() => {
         const subjects = loadData('syllabus_data', []);
         const dailyTasksData = loadData('daily_tasks_data', {});
-        const todayKey = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
+        const todayKey = formatDateKey(new Date());
 
         let pendingCount = 0;
         let completedCount = 0;
@@ -97,12 +99,12 @@ const Dashboard = () => {
         const testsToProcess = tests.length > 0 ? tests : storedTests;
 
         const upcoming = testsToProcess
-            .filter(t => new Date(t.date) >= new Date().setHours(0, 0, 0, 0))
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+            .filter(t => parseLocalDate(t.date) >= startOfLocalDate(new Date()))
+            .sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
         if (upcoming.length > 0) {
             const nearest = upcoming[0];
-            const diffTime = Math.abs(new Date(nearest.date) - new Date().setHours(0, 0, 0, 0));
+            const diffTime = Math.abs(parseLocalDate(nearest.date) - startOfLocalDate(new Date()));
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             setNextTest({
                 ...nearest,
@@ -272,55 +274,131 @@ const Dashboard = () => {
                 {/* Upcoming & Recent Tests (2/3 width) */}
                 <div className="lg:col-span-2 bg-surface/30 backdrop-blur-md p-6 rounded-2xl border border-white/5">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <AlertCircle size={22} className="text-purple-500" /> Upcoming & Recent Tests
+                        <AlertCircle size={22} className="text-purple-500" /> Tests Overview
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {tests.sort((a, b) => new Date(b.date) - new Date(a.date))
-                            .map(test => {
-                                const isPassed = new Date(test.date) < new Date().setHours(0, 0, 0, 0);
-                                return (
-                                    <div key={test.id} className={`p-5 bg-white/5 rounded-2xl border border-white/5 group relative ${isPassed ? 'border-primary/20' : ''} hover:bg-white/[0.08] transition-all`}>
-                                        <button
-                                            onClick={() => deleteTest(test.id)}
-                                            className="absolute top-3 right-3 p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                        <div className="flex flex-col gap-4">
-                                            <div className="flex items-start gap-3">
-                                                <div className={`p-2 rounded-xl ${isPassed ? 'bg-primary/10 text-primary' : 'bg-purple-500/10 text-purple-500'}`}>
-                                                    <AlertCircle size={24} />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className="font-bold text-lg text-gray-100 leading-tight">{test.name}</p>
-                                                    <p className="text-sm text-gray-400 mt-0.5">{test.subject}</p>
-                                                    <p className="text-xs text-primary mt-2 font-bold uppercase tracking-wider">
-                                                        {new Date(test.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            {isPassed && (
-                                                <div className="flex items-center gap-3 mt-2 pt-4 border-t border-white/10">
-                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Score:</span>
-                                                    <div className="flex items-center flex-1">
-                                                        <input
-                                                            type="number"
-                                                            placeholder="0"
-                                                            value={test.score || ''}
-                                                            onChange={(e) => updateTestScore(test.id, e.target.value)}
-                                                            className="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-primary focus:outline-none focus:border-primary text-center"
-                                                            min="0"
-                                                            max="100"
-                                                        />
-                                                        <span className="ml-2 text-sm font-bold text-primary">%</span>
+                    <div className="space-y-8">
+                        {/* Upcoming Tests */}
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Clock size={16} /> Upcoming Tests
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {tests
+                                    .filter(t => parseLocalDate(t.date) >= startOfLocalDate(new Date()) && (!t.score || t.score === ''))
+                                    .sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date))
+                                    .map(test => {
+                                        return (
+                                            <div key={test.id} className="p-5 bg-white/5 rounded-2xl border border-white/5 group relative hover:bg-white/[0.08] transition-all">
+                                                <button
+                                                    onClick={() => deleteTest(test.id)}
+                                                    className="absolute top-3 right-3 p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                                <div className="flex flex-col gap-4">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500">
+                                                            <AlertCircle size={24} />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="font-bold text-lg text-gray-100 leading-tight">{test.name}</p>
+                                                            <p className="text-sm text-gray-400 mt-0.5">{test.subject}</p>
+                                                            <p className="text-xs text-primary mt-2 font-bold uppercase tracking-wider">
+                                                                {parseLocalDate(test.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </div>
+                                            </div>
+                                        );
+                                    })}
+                                {tests.filter(t => parseLocalDate(t.date) >= startOfLocalDate(new Date()) && (!t.score || t.score === '')).length === 0 && (
+                                    <p className="text-sm text-gray-500 italic">No upcoming tests. Relax! ✨</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Completed & Past Tests */}
+                        <div>
+                            <button
+                                onClick={() => setIsCompletedTestsOpen(!isCompletedTestsOpen)}
+                                className="w-full flex items-center justify-between text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 hover:text-gray-300 transition-colors group"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle size={16} /> Completed & Past Tests
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] lowercase font-normal opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {isCompletedTestsOpen ? 'click to collapse' : 'click to expand'}
+                                    </span>
+                                    {isCompletedTestsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                </div>
+                            </button>
+
+                            <AnimatePresence>
+                                {isCompletedTestsOpen && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
+                                            {tests
+                                                .filter(t => parseLocalDate(t.date) < startOfLocalDate(new Date()) || (t.score && t.score !== ''))
+                                                .sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date))
+                                                .map(test => {
+                                                    return (
+                                                        <div key={test.id} className="p-5 bg-white/5 rounded-2xl border border-primary/20 group relative hover:bg-white/[0.08] transition-all">
+                                                            <button
+                                                                onClick={() => deleteTest(test.id)}
+                                                                className="absolute top-3 right-3 p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                            <div className="flex flex-col gap-4">
+                                                                <div className="flex items-start gap-3">
+                                                                    <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                                                                        <CheckCircle size={24} />
+                                                                    </div>
+                                                                    <div className="flex-1">
+                                                                        <p className="font-bold text-lg text-gray-100 leading-tight">{test.name}</p>
+                                                                        <p className="text-sm text-gray-400 mt-0.5">{test.subject}</p>
+                                                                        <p className="text-xs text-primary mt-2 font-bold uppercase tracking-wider">
+                                                                            {parseLocalDate(test.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-center gap-3 mt-2 pt-4 border-t border-white/10">
+                                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Score:</span>
+                                                                    <div className="flex items-center flex-1">
+                                                                        <input
+                                                                            type="number"
+                                                                            placeholder="0"
+                                                                            value={test.score || ''}
+                                                                            onChange={(e) => updateTestScore(test.id, e.target.value)}
+                                                                            className="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm font-bold text-primary focus:outline-none focus:border-primary text-center"
+                                                                            min="0"
+                                                                            max="100"
+                                                                        />
+                                                                        <span className="ml-2 text-sm font-bold text-primary">%</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            {tests.filter(t => parseLocalDate(t.date) < startOfLocalDate(new Date()) || (t.score && t.score !== '')).length === 0 && (
+                                                <p className="text-sm text-gray-500 italic">No completed tests yet.</p>
                                             )}
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+
                         {tests.length === 0 && (
                             <div className="col-span-full py-16 text-center border-2 border-dashed border-white/5 rounded-3xl">
                                 <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
