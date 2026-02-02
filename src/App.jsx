@@ -12,21 +12,26 @@ import DailyTracker from './pages/DailyTracker';
 
 import Gradebook from './pages/Gradebook';
 
+import { StudentProvider } from './context/StudentContext';
+
 function App() {
   return (
     <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/daily" element={<DailyTracker />} />
-          <Route path="/syllabus" element={<SyllabusTracker />} />
-          <Route path="/gradebook" element={<Gradebook />} />
-          <Route path="/activities" element={<ActivitiesTracker />} />
-          <Route path="/notes" element={<StudyNotes />} />
-        </Routes>
-      </Layout>
+      <StudentProvider>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/daily" element={<DailyTracker />} />
+            <Route path="/syllabus" element={<SyllabusTracker />} />
+            <Route path="/gradebook" element={<Gradebook />} />
+            <Route path="/activities" element={<ActivitiesTracker />} />
+            <Route path="/notes" element={<StudyNotes />} />
+          </Routes>
+        </Layout>
+      </StudentProvider>
     </Router>
   );
 }
+
 
 export default App;
