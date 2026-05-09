@@ -2,11 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { Plus, Trash2, ChevronDown, ChevronUp, Book, CheckCircle, Circle, Trophy, Download, Edit2, X, Save, GripVertical } from 'lucide-react';
-import { loadData, saveData } from '../utils/storage';
+import { api } from '../utils/api';
+import { useStudent } from '../context/StudentContext';
 import { georgia8thGradeData } from '../data/georgia8thGrade';
 
 const SyllabusTracker = () => {
-    const [subjects, setSubjects] = useState(() => loadData('syllabus_data', []));
+    const { currentStudent } = useStudent();
+    const [subjects, setSubjects] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [newSubject, setNewSubject] = useState('');
     const [expandedSubject, setExpandedSubject] = useState(null);
 
@@ -26,12 +29,13 @@ const SyllabusTracker = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
-        const handleStorage = () => {
-            setSubjects(loadData('syllabus_data', []));
-        };
-        window.addEventListener('storage', handleStorage);
-        return () => window.removeEventListener('storage', handleStorage);
-    }, []);
+        if (currentStudent?.id) {
+            api.getSyllabus(currentStudent.id).then(data => {
+                setSubjects(data);
+                setLoading(false);
+            });
+        }
+    }, [currentStudent?.id]);
 
     const addSubject = useCallback(() => {
         if (!newSubject.trim()) return;
@@ -41,17 +45,17 @@ const SyllabusTracker = () => {
             topics: []
         }];
         setSubjects(updatedSubjects);
-        saveData('syllabus_data', updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
         setNewSubject('');
-    }, [subjects, newSubject]);
+    }, [subjects, newSubject, currentStudent?.id]);
 
     const deleteSubject = (id) => {
         const updatedSubjects = subjects.filter(s => s.id !== id);
         setSubjects(updatedSubjects);
-        saveData('syllabus_data', updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
     };
 
-    const addTopic = useCallback((subjectId) => {
+    const addTopic = useCallback(async (subjectId) => {
         if (!newTopicName.trim()) return;
 
         const topicId = Date.now();
@@ -76,7 +80,8 @@ const SyllabusTracker = () => {
 
         // If IXL code is present, auto-create activity
         if (ixlCode) {
-            const activities = loadData('activities_data', []);
+            // Note: Synchronous addTopic doesn't await activities, but we can just fire a generic one or ignore it for now.
+            const activities = await api.getActivities(currentStudent?.id);
             const newActivity = {
                 id: Date.now() + 1, // Ensure unique ID
                 name: `${newTopicName} (IXL ${ixlCode})`,
@@ -84,12 +89,12 @@ const SyllabusTracker = () => {
                 progress: 0,
                 notes: `Auto-generated from Syllabus: ${ixlCode}`
             };
-            saveData('activities_data', [...activities, newActivity]);
+            api.saveActivities(currentStudent?.id, [...activities, newActivity]);
         }
 
         setNewTopicName('');
         setNewTopicIXL('');
-    }, [subjects, newTopicName, newTopicIXL]);
+    }, [subjects, newTopicName, newTopicIXL, currentStudent?.id]);
 
     const updateTopicStatus = (subjectId, topicId, status) => {
         const updatedSubjects = subjects.map(s => {
@@ -106,7 +111,7 @@ const SyllabusTracker = () => {
             return s;
         });
         setSubjects(updatedSubjects);
-        saveData('syllabus_data', updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
     };
 
     const deleteTopic = (subjectId, topicId) => {
@@ -120,7 +125,7 @@ const SyllabusTracker = () => {
             return s;
         });
         setSubjects(updatedSubjects);
-        saveData('syllabus_data', updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
     };
 
 
@@ -143,7 +148,7 @@ const SyllabusTracker = () => {
             return s;
         });
         setSubjects(updatedSubjects);
-        saveData('syllabus_data', updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
     };
 
     const toggleTopicTask = (subjectId, topicId, taskId) => {
@@ -165,7 +170,7 @@ const SyllabusTracker = () => {
             return s;
         });
         setSubjects(updatedSubjects);
-        saveData('syllabus_data', updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
     };
 
     const deleteTopicTask = (subjectId, topicId, taskId) => {
@@ -187,7 +192,7 @@ const SyllabusTracker = () => {
             return s;
         });
         setSubjects(updatedSubjects);
-        saveData('syllabus_data', updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
     };
 
     // Edit Handlers
@@ -200,7 +205,7 @@ const SyllabusTracker = () => {
         if (!editSubjectName.trim()) return;
         const updatedSubjects = subjects.map(s => s.id === id ? { ...s, name: editSubjectName } : s);
         setSubjects(updatedSubjects);
-        saveData('syllabus_data', updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
         setEditingSubjectId(null);
     };
 
@@ -222,19 +227,19 @@ const SyllabusTracker = () => {
             return s;
         });
         setSubjects(updatedSubjects);
-        saveData('syllabus_data', updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
         setEditingTopicId(null);
     };
 
     const reorderTopics = (subjectId, newTopics) => {
         const updatedSubjects = subjects.map(s => s.id === subjectId ? { ...s, topics: newTopics } : s);
         setSubjects(updatedSubjects);
-        saveData('syllabus_data', updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
     };
 
-    const loadCurriculum = () => {
+    const loadCurriculum = async () => {
         const newSubjects = [...subjects];
-        let activities = loadData('activities_data', []);
+        let activities = await api.getActivities(currentStudent?.id);
 
         georgia8thGradeData.forEach(gradeSubject => {
             // Check if subject already exists
@@ -276,9 +281,11 @@ const SyllabusTracker = () => {
         });
 
         setSubjects(newSubjects);
-        saveData('syllabus_data', newSubjects);
-        saveData('activities_data', activities);
+        api.saveSyllabus(currentStudent?.id, newSubjects);
+        api.saveActivities(currentStudent?.id, activities);
     };
+
+    if (loading) return <div className="text-center py-12 text-gray-500">Loading syllabus...</div>;
 
     return (
         <div className="space-y-8">

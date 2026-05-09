@@ -2,27 +2,34 @@ import React, { useState, useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calculator, TrendingUp, Calendar, Trash2, CheckCircle, AlertCircle, Save, X, BookOpen } from 'lucide-react';
-import { loadData, saveData } from '../utils/storage';
+import { api } from '../utils/api';
+import { useStudent } from '../context/StudentContext';
 
 const Gradebook = () => {
-    const [tests, setTests] = useState(() => loadData('tests_data', []));
-    const [subjects, setSubjects] = useState(() => loadData('syllabus_data', []));
+    const { currentStudent } = useStudent();
+    const [tests, setTests] = useState([]);
+    const [subjects, setSubjects] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [editingTestId, setEditingTestId] = useState(null);
     const [editScore, setEditScore] = useState('');
 
     useEffect(() => {
-        const handleStorage = () => {
-            setTests(loadData('tests_data', []));
-            setSubjects(loadData('syllabus_data', []));
-        };
-        window.addEventListener('storage', handleStorage);
-        return () => window.removeEventListener('storage', handleStorage);
-    }, []);
+        if (currentStudent?.id) {
+            Promise.all([
+                api.getGrades(currentStudent.id),
+                api.getSyllabus(currentStudent.id)
+            ]).then(([grades, syllabus]) => {
+                setTests(Array.isArray(grades) ? grades : []);
+                setSubjects(Array.isArray(syllabus) ? syllabus : []);
+                setLoading(false);
+            });
+        }
+    }, [currentStudent?.id]);
 
     const updateTestScore = (id, score) => {
         const updatedTests = tests.map(t => t.id === id ? { ...t, score } : t);
         setTests(updatedTests);
-        saveData('tests_data', updatedTests);
+        api.saveGrades(currentStudent?.id, updatedTests);
         setEditingTestId(null);
     };
 
@@ -30,7 +37,7 @@ const Gradebook = () => {
         if (window.confirm('Are you sure you want to delete this test record?')) {
             const updatedTests = tests.filter(t => t.id !== id);
             setTests(updatedTests);
-            saveData('tests_data', updatedTests);
+            api.saveGrades(currentStudent?.id, updatedTests);
         }
     };
 
@@ -56,6 +63,8 @@ const Gradebook = () => {
     const overallAvg = gradedTests.length > 0
         ? Math.round(gradedTests.reduce((sum, t) => sum + Number(t.score), 0) / gradedTests.length)
         : 0;
+
+    if (loading) return <div className="text-center py-12 text-gray-500">Loading gradebook...</div>;
 
     return (
         <div className="space-y-8">

@@ -2,24 +2,31 @@ import React, { useState, useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, Trophy, Star, Activity as ActivityIcon, CheckCircle, Clock, TrendingUp } from 'lucide-react';
-import { loadData, saveData } from '../utils/storage';
+import { api } from '../utils/api';
+import { useStudent } from '../context/StudentContext';
 
 const ActivitiesTracker = () => {
-    const [activities, setActivities] = useState(() => loadData('activities_data', []));
+    const { currentStudent } = useStudent();
+    const [activities, setActivities] = useState([]);
     const [newActivity, setNewActivity] = useState('');
-    const [category, setCategory] = useState('IXL'); // IXL, Sports, Music, etc.
+    const [category, setCategory] = useState('IXL');
 
-    const [syllabusData, setSyllabusData] = useState(() => loadData('syllabus_data', []));
+    const [syllabusData, setSyllabusData] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [recentActivity, setRecentActivity] = useState([]);
 
     useEffect(() => {
-        const handleStorage = () => {
-            setActivities(loadData('activities_data', []));
-            setSyllabusData(loadData('syllabus_data', []));
-        };
-        window.addEventListener('storage', handleStorage);
-        return () => window.removeEventListener('storage', handleStorage);
-    }, []);
+        if (currentStudent?.id) {
+            Promise.all([
+                api.getActivities(currentStudent.id),
+                api.getSyllabus(currentStudent.id)
+            ]).then(([acts, syll]) => {
+                setActivities(acts);
+                setSyllabusData(syll);
+                setLoading(false);
+            });
+        }
+    }, [currentStudent?.id]);
 
     useEffect(() => {
         const progressActivity = activities.flatMap(activity =>
@@ -54,14 +61,14 @@ const ActivitiesTracker = () => {
             notes: ''
         }];
         setActivities(updatedActivities);
-        saveData('activities_data', updatedActivities);
+        api.saveActivities(currentStudent?.id, updatedActivities);
         setNewActivity('');
     };
 
     const deleteActivity = (id) => {
         const updatedActivities = activities.filter(a => a.id !== id);
         setActivities(updatedActivities);
-        saveData('activities_data', updatedActivities);
+        api.saveActivities(currentStudent?.id, updatedActivities);
     };
 
     const updateProgress = (id, progress) => {
@@ -87,14 +94,16 @@ const ActivitiesTracker = () => {
             return a;
         });
         setActivities(updatedActivities);
-        saveData('activities_data', updatedActivities);
+        api.saveActivities(currentStudent?.id, updatedActivities);
     };
 
     const updateNotes = (id, notes) => {
         const updatedActivities = activities.map(a => a.id === id ? { ...a, notes } : a);
         setActivities(updatedActivities);
-        saveData('activities_data', updatedActivities);
+        api.saveActivities(currentStudent?.id, updatedActivities);
     };
+
+    if (loading) return <div className="text-center py-12 text-gray-500">Loading activities...</div>;
 
     return (
         <div className="space-y-8">

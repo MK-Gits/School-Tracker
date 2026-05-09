@@ -2,22 +2,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Circle, Plus, Calendar as CalendarIcon, Clock, ArrowRight, ChevronLeft, ChevronRight, Book, Trophy, TrendingUp, AlertCircle } from 'lucide-react';
-import { loadData, saveData } from '../utils/storage';
+import { api } from '../utils/api';
+import { useStudent } from '../context/StudentContext';
 import { formatDateKey } from '../utils/dateUtils';
 import { Link } from 'react-router-dom';
 
 const DailyTracker = () => {
-    const [syllabusData, setSyllabusData] = useState(() => loadData('syllabus_data', []));
-    const [activitiesData, setActivitiesData] = useState(() => loadData('activities_data', []));
-    const [allDailyTasks, setAllDailyTasks] = useState(() => {
-        const stored = loadData('daily_tasks_data', {});
-        // Migration: If stored tasks is an array (old structure), move it to today
-        if (Array.isArray(stored)) {
-            const today = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
-            return { [today]: stored };
-        }
-        return stored;
-    });
+    const { currentStudent } = useStudent();
+    const [syllabusData, setSyllabusData] = useState([]);
+    const [activitiesData, setActivitiesData] = useState([]);
+    const [allDailyTasks, setAllDailyTasks] = useState({});
+    const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [newTask, setNewTask] = useState('');
     const [viewDate, setViewDate] = useState(new Date()); // For calendar navigation
@@ -26,16 +21,19 @@ const DailyTracker = () => {
     const dateKey = useMemo(() => formatDateKey(selectedDate), [selectedDate]);
 
     useEffect(() => {
-        // We sync from storage if and only if it changes externally
-        const handleStorage = () => {
-            setSyllabusData(loadData('syllabus_data', []));
-            setActivitiesData(loadData('activities_data', []));
-            const stored = loadData('daily_tasks_data', {});
-            setAllDailyTasks(Array.isArray(stored) ? { [formatDateKey(new Date())]: stored } : stored);
-        };
-        window.addEventListener('storage', handleStorage);
-        return () => window.removeEventListener('storage', handleStorage);
-    }, []);
+        if (currentStudent?.id) {
+            Promise.all([
+                api.getSyllabus(currentStudent.id),
+                api.getActivities(currentStudent.id),
+                api.getDailyTasks(currentStudent.id)
+            ]).then(([syllabus, activities, daily]) => {
+                setSyllabusData(Array.isArray(syllabus) ? syllabus : []);
+                setActivitiesData(Array.isArray(activities) ? activities : []);
+                setAllDailyTasks(daily && typeof daily === 'object' ? daily : {});
+                setLoading(false);
+            });
+        }
+    }, [currentStudent?.id]);
 
     // No longer using useEffect for saving to avoid race conditions on mount/unmount
     // Each action now saves directly
@@ -63,7 +61,7 @@ const DailyTracker = () => {
             [dateKey]: [...dailyTasks, { id: Date.now(), text: newTask, completed: false }]
         };
         setAllDailyTasks(updatedTasks);
-        saveData('daily_tasks_data', updatedTasks);
+        api.saveDailyTasks(currentStudent?.id, updatedTasks);
         setNewTask('');
     };
 
@@ -73,7 +71,7 @@ const DailyTracker = () => {
             [dateKey]: dailyTasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
         };
         setAllDailyTasks(updatedTasks);
-        saveData('daily_tasks_data', updatedTasks);
+        api.saveDailyTasks(currentStudent?.id, updatedTasks);
     };
 
     const deleteDailyTask = (id) => {
@@ -82,16 +80,16 @@ const DailyTracker = () => {
             [dateKey]: dailyTasks.filter(t => t.id !== id)
         };
         setAllDailyTasks(updatedTasks);
-        saveData('daily_tasks_data', updatedTasks);
+        api.saveDailyTasks(currentStudent?.id, updatedTasks);
     };
 
-    const addTest = (e) => {
+    const addTest = async (e) => {
         e.preventDefault();
         if (!newTest.subject || !newTest.name || !newTest.date) return;
 
-        const storedTests = loadData('tests_data', []);
+        const storedTests = await api.getGrades(currentStudent?.id);
         const updatedTests = [...storedTests, { id: Date.now(), ...newTest }];
-        saveData('tests_data', updatedTests);
+        api.saveGrades(currentStudent?.id, updatedTests);
         setNewTest({ subject: '', name: '', date: '' });
         alert('Test scheduled successfully! Check it on your Dashboard.');
     };
@@ -149,6 +147,8 @@ const DailyTracker = () => {
         dateKey === formatDateKey(new Date()) ? 'Today' : selectedDate.toLocaleDateString(),
         [dateKey, selectedDate]
     );
+
+    if (loading) return <div className="text-center py-12 text-gray-500">Loading tracker...</div>;
 
     return (
         <div className="space-y-8">

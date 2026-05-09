@@ -2,42 +2,55 @@ import React, { useState, useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Trash2, Calculator, Atom, Beaker, FileText, BookOpen, Edit2, Save, X } from 'lucide-react';
-import { loadData, saveData } from '../utils/storage';
+import { api } from '../utils/api';
+import { useStudent } from '../context/StudentContext';
 
 const StudyNotes = () => {
-    const [notes, setNotes] = useState(() => loadData('study_notes_data', []));
+    const { currentStudent } = useStudent();
+    const [notes, setNotes] = useState([]);
     const [newNote, setNewNote] = useState({ title: '', content: '', category: 'Math' });
     const [searchQuery, setSearchQuery] = useState('');
     const [isAdding, setIsAdding] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     // Editing State
     const [editingNoteId, setEditingNoteId] = useState(null);
     const [editNoteData, setEditNoteData] = useState({ title: '', content: '', category: 'Math' });
+
+    useEffect(() => {
+        if (currentStudent?.id) {
+            api.getNotes(currentStudent.id).then(data => {
+                setNotes(data);
+                setLoading(false);
+            });
+        }
+    }, [currentStudent?.id]);
 
     const startEditing = (note) => {
         setEditingNoteId(note.id);
         setEditNoteData({ title: note.title, content: note.content, category: note.category });
     };
 
-    const saveEdit = () => {
-        if (!editNoteData.title.trim() || !editNoteData.content.trim()) return;
-        setNotes(notes.map(n => n.id === editingNoteId ? { ...n, ...editNoteData } : n));
-        setEditingNoteId(null);
-    };
-
-    useEffect(() => {
-        saveData('study_notes_data', notes);
-    }, [notes]);
-
     const addNote = () => {
         if (!newNote.title.trim() || !newNote.content.trim()) return;
-        setNotes([...notes, { ...newNote, id: Date.now() }]);
+        const updatedNotes = [{ id: Date.now(), ...newNote }, ...notes];
+        setNotes(updatedNotes);
+        api.saveNotes(currentStudent?.id, updatedNotes);
         setNewNote({ title: '', content: '', category: 'Math' });
         setIsAdding(false);
     };
 
+    const saveEdit = () => {
+        const updatedNotes = notes.map(n => n.id === editingNoteId ? { ...n, ...editNoteData } : n);
+        setNotes(updatedNotes);
+        api.saveNotes(currentStudent?.id, updatedNotes);
+        setEditingNoteId(null);
+    };
+
     const deleteNote = (id) => {
-        setNotes(notes.filter(n => n.id !== id));
+        const updatedNotes = notes.filter(n => n.id !== id);
+        setNotes(updatedNotes);
+        api.saveNotes(currentStudent?.id, updatedNotes);
     };
 
     const filteredNotes = notes.filter(n =>
@@ -46,184 +59,157 @@ const StudyNotes = () => {
         n.category.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const getIcon = (category) => {
-        switch (category) {
-            case 'Math': return <Calculator size={20} />;
-            case 'Physics': return <Atom size={20} />;
-            case 'Chemistry': return <Beaker size={20} />;
-            default: return <BookOpen size={20} />;
-        }
-    };
+    const categories = ['Math', 'Science', 'History', 'English', 'Other'];
 
-    const getColor = (category) => {
-        switch (category) {
-            case 'Math': return 'text-blue-500 bg-blue-500/20';
-            case 'Physics': return 'text-purple-500 bg-purple-500/20';
-            case 'Chemistry': return 'text-green-500 bg-green-500/20';
-            default: return 'text-orange-500 bg-orange-500/20';
-        }
-    };
+    if (loading) return <div className="text-center py-12 text-gray-500">Loading notes...</div>;
 
     return (
         <div className="space-y-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold mb-2">Study Notes</h1>
-                    <p className="text-gray-400">Your personal knowledge base for formulas, definitions, and notes.</p>
+                    <h1 className="text-3xl font-bold mb-2 text-white">Study Notes</h1>
+                    <p className="text-gray-400">Keep track of important concepts and information.</p>
                 </div>
                 <button
                     onClick={() => setIsAdding(!isAdding)}
-                    className="bg-primary hover:bg-primary/80 text-white px-6 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 w-fit"
+                    className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/80 text-white rounded-2xl font-bold transition-all transform active:scale-95 shadow-lg shadow-primary/20"
                 >
-                    <Plus size={20} /> {isAdding ? 'Cancel' : 'Add Note'}
+                    {isAdding ? <X size={20} /> : <Plus size={20} />}
+                    {isAdding ? 'Cancel' : 'New Note'}
                 </button>
             </div>
 
-            {/* Add Note Form */}
-            <AnimatePresence>
-                {isAdding && (
-                    <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden"
-                    >
-                        <div className="bg-surface/30 backdrop-blur-md p-6 rounded-2xl border border-white/5 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input
-                                    type="text"
-                                    value={newNote.title}
-                                    onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
-                                    placeholder="Title (e.g., Newton's Laws)"
-                                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-primary"
-                                />
-                                <select
-                                    value={newNote.category}
-                                    onChange={(e) => setNewNote({ ...newNote, category: e.target.value })}
-                                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 focus:outline-none focus:border-primary text-white"
-                                >
-                                    <option value="Math" className="bg-[#1a1c20]">Math</option>
-                                    <option value="Physics" className="bg-[#1a1c20]">Physics</option>
-                                    <option value="Chemistry" className="bg-[#1a1c20]">Chemistry</option>
-                                    <option value="Biology" className="bg-[#1a1c20]">Biology</option>
-                                    <option value="History" className="bg-[#1a1c20]">History</option>
-                                    <option value="Other" className="bg-[#1a1c20]">Other</option>
-                                </select>
-                            </div>
-                            <textarea
-                                value={newNote.content}
-                                onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
-                                placeholder="Type your notes here..."
-                                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 focus:outline-none focus:border-primary h-32 font-mono"
-                            />
-                            <button
-                                onClick={addNote}
-                                className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-xl font-medium transition-colors w-full md:w-auto"
-                            >
-                                Save Note
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Search */}
+            {/* Search Bar */}
             <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                 <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search notes..."
-                    className="w-full bg-surface/50 backdrop-blur-xl border border-white/5 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-primary transition-colors"
+                    placeholder="Search through your notes..."
+                    className="w-full bg-surface/50 backdrop-blur-xl border border-white/10 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-primary transition-colors text-white"
                 />
             </div>
 
-            {/* Notes Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                <AnimatePresence>
-                    {filteredNotes.map((note) => (
-                        <motion.div
-                            key={note.id}
-                            layout
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            className="bg-surface/50 backdrop-blur-xl p-6 rounded-2xl border border-white/5 relative group hover:border-primary/50 transition-colors"
+            {/* Add Note Form */}
+            <AnimatePresence>
+                {isAdding && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="bg-surface/50 backdrop-blur-xl p-6 rounded-3xl border border-white/10 shadow-2xl"
+                    >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">Title</label>
+                                <input
+                                    type="text"
+                                    value={newNote.title}
+                                    onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors"
+                                    placeholder="Note Title"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">Category</label>
+                                <select
+                                    value={newNote.category}
+                                    onChange={(e) => setNewNote({ ...newNote, category: e.target.value })}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors text-white"
+                                >
+                                    {categories.map(c => <option key={c} value={c} className="bg-[#1a1c20]">{c}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Content</label>
+                            <textarea
+                                value={newNote.content}
+                                onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                                rows="4"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors"
+                                placeholder="Your study notes..."
+                            />
+                        </div>
+                        <button
+                            onClick={addNote}
+                            className="w-full bg-primary hover:bg-primary/80 text-white py-3 rounded-xl font-bold transition-colors"
                         >
-                            {editingNoteId === note.id ? (
-                                <div className="space-y-4">
-                                    <input
-                                        type="text"
-                                        value={editNoteData.title}
-                                        onChange={(e) => setEditNoteData({ ...editNoteData, title: e.target.value })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 font-bold focus:outline-none focus:border-primary"
-                                        placeholder="Title"
-                                    />
-                                    <select
-                                        value={editNoteData.category}
-                                        onChange={(e) => setEditNoteData({ ...editNoteData, category: e.target.value })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary text-white"
-                                    >
-                                        <option value="Math" className="bg-[#1a1c20]">Math</option>
-                                        <option value="Physics" className="bg-[#1a1c20]">Physics</option>
-                                        <option value="Chemistry" className="bg-[#1a1c20]">Chemistry</option>
-                                        <option value="Biology" className="bg-[#1a1c20]">Biology</option>
-                                        <option value="History" className="bg-[#1a1c20]">History</option>
-                                        <option value="Other" className="bg-[#1a1c20]">Other</option>
-                                    </select>
-                                    <textarea
-                                        value={editNoteData.content}
-                                        onChange={(e) => setEditNoteData({ ...editNoteData, content: e.target.value })}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-primary h-32"
-                                        placeholder="Content"
-                                    />
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={saveEdit} className="p-2 bg-green-500/20 text-green-500 hover:bg-green-500/30 rounded-lg transition-colors">
-                                            <Save size={20} />
+                            Save Note
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Notes Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredNotes.map((note) => (
+                    <motion.div
+                        key={note.id}
+                        layout
+                        className="bg-surface/50 backdrop-blur-xl p-6 rounded-3xl border border-white/10 relative group"
+                    >
+                        {editingNoteId === note.id ? (
+                            <div className="space-y-4">
+                                <input
+                                    type="text"
+                                    value={editNoteData.title}
+                                    onChange={(e) => setEditNoteData({ ...editNoteData, title: e.target.value })}
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                />
+                                <select
+                                    value={editNoteData.category}
+                                    onChange={(e) => setEditNoteData({ ...editNoteData, category: e.target.value })}
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary text-white"
+                                >
+                                    {categories.map(c => <option key={c} value={c} className="bg-[#1a1c20]">{c}</option>)}
+                                </select>
+                                <textarea
+                                    value={editNoteData.content}
+                                    onChange={(e) => setEditNoteData({ ...editNoteData, content: e.target.value })}
+                                    rows="3"
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                />
+                                <div className="flex gap-2">
+                                    <button onClick={saveEdit} className="flex-1 bg-primary py-2 rounded-xl text-xs font-bold">Save</button>
+                                    <button onClick={() => setEditingNoteId(null)} className="px-4 bg-white/5 py-2 rounded-xl text-xs font-bold">Cancel</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={`p-3 rounded-2xl bg-primary/10 text-primary`}>
+                                        {note.category === 'Math' ? <Calculator size={20} /> :
+                                         note.category === 'Science' ? <Atom size={20} /> :
+                                         note.category === 'Biology' ? <Beaker size={20} /> : <FileText size={20} />}
+                                    </div>
+                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => startEditing(note)} className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg">
+                                            <Edit2 size={16} />
                                         </button>
-                                        <button onClick={() => setEditingNoteId(null)} className="p-2 bg-red-500/20 text-red-500 hover:bg-red-500/30 rounded-lg transition-colors">
-                                            <X size={20} />
+                                        <button onClick={() => deleteNote(note.id)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg">
+                                            <Trash2 size={16} />
                                         </button>
                                     </div>
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className={`p-3 rounded-xl ${getColor(note.category)}`}>
-                                            {getIcon(note.category)}
-                                        </div>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={() => startEditing(note)}
-                                                className="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                                            >
-                                                <Edit2 size={18} />
-                                            </button>
-                                            <button
-                                                onClick={() => deleteNote(note.id)}
-                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <h3 className="text-lg font-bold mb-2">{note.title}</h3>
-                                    <div className="bg-black/20 rounded-xl p-4 font-mono text-sm text-gray-300 overflow-x-auto whitespace-pre-wrap">
-                                        {note.content}
-                                    </div>
-                                    <div className="mt-4 flex justify-end">
-                                        <span className="text-xs text-gray-500 px-2 py-1 rounded-full bg-white/5">
-                                            {note.category}
-                                        </span>
-                                    </div>
-                                </>
-                            )}
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
+                                <div className="inline-block px-3 py-1 rounded-full bg-white/5 text-[10px] font-bold uppercase tracking-widest text-primary mb-2">
+                                    {note.category}
+                                </div>
+                                <h3 className="text-xl font-bold mb-2 text-white">{note.title}</h3>
+                                <p className="text-gray-400 text-sm line-clamp-4 leading-relaxed">{note.content}</p>
+                            </>
+                        )}
+                    </motion.div>
+                ))}
             </div>
+
+            {filteredNotes.length === 0 && (
+                <div className="text-center py-20 bg-surface/30 rounded-3xl border border-dashed border-white/10">
+                    <BookOpen size={48} className="mx-auto mb-4 text-gray-600 opacity-20" />
+                    <p className="text-gray-500 font-medium">No notes found matching your search.</p>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,17 +1,16 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Activity, Calculator, Menu, X, Calendar, User, Plus, Trash2, Edit2 } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Activity, Calculator, Menu, X, Calendar, User, Plus, Trash2, Edit2, Database, Wifi, WifiOff, CloudOff, RefreshCw } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStudent } from '../context/StudentContext';
-
 const Layout = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = React.useState(false);
     const [editingId, setEditingId] = React.useState(null);
     const [newName, setNewName] = React.useState('');
     const [newGrade, setNewGrade] = React.useState('');
-    const { students, currentStudent, switchStudent, addStudent, updateStudent, deleteStudent } = useStudent();
+    const { students, currentStudent, switchStudent, addStudent, updateStudent, deleteStudent, isOffline, hasPendingSync } = useStudent();
     const location = useLocation();
 
     const navItems = [
@@ -42,7 +41,7 @@ const Layout = ({ children }) => {
 
             {/* Sidebar */}
             <motion.aside
-                className={`fixed md:relative z-50 w-64 h-screen bg-surface/50 backdrop-blur-xl border-r border-white/10 flex flex-col transition-transform duration-300 ease-in-out
+                className={`fixed md:relative z-50 w-64 h-screen bg-surface/50 backdrop-blur-xl border-r border-white/10 flex flex-col transition-transform duration-300 ease-in-out overflow-y-auto
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
                 initial={false}
@@ -88,6 +87,19 @@ const Layout = ({ children }) => {
                     </div>
                 </div>
 
+                {/* Connectivity Status */}
+                <div className="px-4 mb-2">
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                        isOffline ? 'bg-red-500/10 text-red-400' : 
+                        hasPendingSync ? 'bg-orange-500/10 text-orange-400' : 'bg-green-500/10 text-green-400'
+                    }`}>
+                        {isOffline ? <CloudOff size={14} /> : hasPendingSync ? <RefreshCw size={14} className="animate-spin" /> : <Database size={14} />}
+                        <span>
+                            {isOffline ? 'Offline Mode' : hasPendingSync ? 'Syncing to DB...' : 'DB Connected'}
+                        </span>
+                    </div>
+                </div>
+
                 <nav className="flex-1 px-4 py-4 space-y-2">
                     {navItems.map((item) => {
                         const Icon = item.icon;
@@ -116,7 +128,7 @@ const Layout = ({ children }) => {
                     })}
                 </nav>
 
-                <div className="p-4 border-t border-white/10">
+                <div className="p-4 border-t border-white/10 space-y-4">
                     <div className="bg-gradient-to-br from-primary/20 to-secondary/20 p-4 rounded-xl border border-white/5">
                         <p className="text-xs text-gray-400 mb-1">Current Term</p>
                         <p className="font-semibold">Spring 2026</p>
