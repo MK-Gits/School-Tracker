@@ -4,6 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Trash2, Calculator, Atom, Beaker, FileText, BookOpen, Edit2, Save, X } from 'lucide-react';
 import { api } from '../utils/api';
 import { useStudent } from '../context/StudentContext';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
+import { Copy, Check } from 'lucide-react';
 
 const StudyNotes = () => {
     const { currentStudent } = useStudent();
@@ -12,6 +18,9 @@ const StudyNotes = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isAdding, setIsAdding] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isPreviewMode, setIsPreviewMode] = useState(false);
+    const [selectedNote, setSelectedNote] = useState(null);
+    const [copySuccess, setCopySuccess] = useState(false);
 
     // Editing State
     const [editingNoteId, setEditingNoteId] = useState(null);
@@ -58,6 +67,54 @@ const StudyNotes = () => {
         n.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
         n.category.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const handleCopy = (text) => {
+        navigator.clipboard.writeText(text);
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+    };
+
+    const getCategoryStyles = (cat) => {
+        switch (cat) {
+            case 'Math': return 'from-blue-500/20 to-cyan-500/20 text-blue-400 border-blue-500/30';
+            case 'Science': return 'from-green-500/20 to-emerald-500/20 text-green-400 border-green-500/30';
+            case 'History': return 'from-amber-500/20 to-orange-500/20 text-amber-400 border-amber-500/30';
+            case 'English': return 'from-purple-500/20 to-pink-500/20 text-purple-400 border-purple-500/30';
+            default: return 'from-gray-500/20 to-slate-500/20 text-gray-400 border-white/10';
+        }
+    };
+
+    const processNoteContent = (content) => {
+        if (!content || typeof content !== 'string') return '';
+        
+        let processed = content;
+        
+        // 1. Convert genui math widgets to standard markdown math blocks
+        processed = processed.replace(/genui[\s\S]*?\{\s*[\s\S]*?"content"\s*:\s*"([\s\S]*?)"\s*\}\s*\}/g, (match, formula) => {
+            const cleanFormula = formula.replace(/\\\\/g, '\\');
+            return `\n\n$$\n${cleanFormula}\n$$\n\n`;
+        });
+
+        // 2. Wrap lines containing LaTeX commands in math blocks if not already wrapped
+        const lines = processed.split('\n');
+        processed = lines.map(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return line;
+            
+            // Detection: check for common LaTeX commands
+            const hasMath = trimmed.includes('\\frac') || 
+                           trimmed.includes('\\sqrt') || 
+                           trimmed.includes('\\pi') || 
+                           (trimmed.includes('\\text') && trimmed.includes('='));
+            
+            if (hasMath && !trimmed.startsWith('$') && !trimmed.startsWith('```')) {
+                return `\n\n$$\n${trimmed}\n$$\n\n`;
+            }
+            return line;
+        }).join('\n');
+
+        return processed;
+    };
 
     const categories = ['Math', 'Science', 'History', 'English', 'Other'];
 
@@ -123,14 +180,34 @@ const StudyNotes = () => {
                             </div>
                         </div>
                         <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Content</label>
-                            <textarea
-                                value={newNote.content}
-                                onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
-                                rows="4"
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors"
-                                placeholder="Your study notes..."
-                            />
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-medium text-gray-400">Content (Markdown & Math supported)</label>
+                                <button 
+                                    onClick={() => setIsPreviewMode(!isPreviewMode)}
+                                    className="text-xs text-primary hover:underline"
+                                >
+                                    {isPreviewMode ? 'Switch to Editor' : 'Show Preview'}
+                                </button>
+                            </div>
+                            
+                            {isPreviewMode ? (
+                                <div className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 min-h-[120px] prose prose-invert prose-sm max-w-none">
+                                    <ReactMarkdown 
+                                        remarkPlugins={[remarkGfm, remarkMath]} 
+                                        rehypePlugins={[rehypeKatex]}
+                                    >
+                                        {processNoteContent(newNote.content) || '*No content yet*'}
+                                    </ReactMarkdown>
+                                </div>
+                            ) : (
+                                <textarea
+                                    value={newNote.content}
+                                    onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                                    rows="4"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors text-white"
+                                    placeholder="Use **Bold**, # Headings, or $E=mc^2$ for math..."
+                                />
+                            )}
                         </div>
                         <button
                             onClick={addNote}
@@ -148,7 +225,8 @@ const StudyNotes = () => {
                     <motion.div
                         key={note.id}
                         layout
-                        className="bg-surface/50 backdrop-blur-xl p-6 rounded-3xl border border-white/10 relative group"
+                        onClick={() => !editingNoteId && setSelectedNote(note)}
+                        className={`bg-surface/50 backdrop-blur-xl p-6 rounded-3xl border border-white/10 relative group cursor-pointer hover:border-primary/50 transition-colors shadow-lg hover:shadow-primary/5`}
                     >
                         {editingNoteId === note.id ? (
                             <div className="space-y-4">
@@ -197,12 +275,103 @@ const StudyNotes = () => {
                                     {note.category}
                                 </div>
                                 <h3 className="text-xl font-bold mb-2 text-white">{note.title}</h3>
-                                <p className="text-gray-400 text-sm line-clamp-4 leading-relaxed">{note.content}</p>
+                                <div className="text-gray-400 text-sm line-clamp-4 leading-relaxed prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-1 prose-ul:my-1">
+                                    <ReactMarkdown 
+                                        remarkPlugins={[remarkGfm, remarkMath]}
+                                        rehypePlugins={[rehypeKatex]}
+                                    >
+                                        {processNoteContent(note.content)}
+                                    </ReactMarkdown>
+                                </div>
+                                <div className="mt-4 pt-4 border-t border-white/5 text-[10px] text-gray-500 font-bold uppercase tracking-wider group-hover:text-primary transition-colors">
+                                    Click to read full note
+                                </div>
                             </>
                         )}
                     </motion.div>
                 ))}
             </div>
+
+            {/* Focus Reader Modal */}
+            <AnimatePresence>
+                {selectedNote && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setSelectedNote(null)}
+                            className="absolute inset-0 bg-black/90 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className={`relative bg-gradient-to-b ${getCategoryStyles(selectedNote.category)} border w-full max-w-4xl max-h-[85vh] overflow-hidden rounded-[2.5rem] shadow-2xl flex flex-col`}
+                        >
+                            {/* Header */}
+                            <div className="p-8 border-b border-white/10 flex items-center justify-between bg-black/20 backdrop-blur-xl">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 rounded-2xl bg-white/10 text-white">
+                                        {selectedNote.category === 'Math' ? <Calculator size={24} /> :
+                                         selectedNote.category === 'Science' ? <Atom size={24} /> :
+                                         selectedNote.category === 'Biology' ? <Beaker size={24} /> : <FileText size={24} />}
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60 mb-1">
+                                            {selectedNote.category} Notes
+                                        </div>
+                                        <h2 className="text-2xl md:text-3xl font-black text-white leading-tight">
+                                            {selectedNote.title}
+                                        </h2>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={() => handleCopy(selectedNote.content)}
+                                        className="p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-2xl transition-all"
+                                        title="Copy Note Content"
+                                    >
+                                        {copySuccess ? <Check size={20} className="text-green-400" /> : <Copy size={20} />}
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            startEditing(selectedNote);
+                                            setSelectedNote(null);
+                                        }}
+                                        className="p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-2xl transition-all"
+                                    >
+                                        <Edit2 size={20} />
+                                    </button>
+                                    <button 
+                                        onClick={() => setSelectedNote(null)}
+                                        className="p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-2xl transition-all"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 overflow-y-auto p-8 md:p-12 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                                <div className="prose prose-invert prose-lg max-w-none prose-headings:font-black prose-p:text-gray-300 prose-p:leading-relaxed prose-strong:text-white prose-code:text-primary prose-pre:bg-black/40 prose-pre:border prose-pre:border-white/5">
+                                    <ReactMarkdown 
+                                        remarkPlugins={[remarkGfm, remarkMath]}
+                                        rehypePlugins={[rehypeKatex]}
+                                    >
+                                        {processNoteContent(selectedNote.content)}
+                                    </ReactMarkdown>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="p-6 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-gray-500 border-t border-white/10 bg-black/10">
+                                End of Note
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {filteredNotes.length === 0 && (
                 <div className="text-center py-20 bg-surface/30 rounded-3xl border border-dashed border-white/10">

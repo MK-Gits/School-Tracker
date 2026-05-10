@@ -5,6 +5,7 @@ import { Plus, Trash2, ChevronDown, ChevronUp, Book, CheckCircle, Circle, Trophy
 import { api } from '../utils/api';
 import { useStudent } from '../context/StudentContext';
 import { georgia8thGradeData } from '../data/georgia8thGrade';
+import { forsyth3rdGradeData } from '../data/forsyth3rdGrade';
 
 const SyllabusTracker = () => {
     const { currentStudent } = useStudent();
@@ -12,6 +13,7 @@ const SyllabusTracker = () => {
     const [loading, setLoading] = useState(true);
     const [newSubject, setNewSubject] = useState('');
     const [expandedSubject, setExpandedSubject] = useState(null);
+    const [showTemplateMenu, setShowTemplateMenu] = useState(false);
 
     // Editing State
     const [editingSubjectId, setEditingSubjectId] = useState(null);
@@ -237,11 +239,11 @@ const SyllabusTracker = () => {
         api.saveSyllabus(currentStudent?.id, updatedSubjects);
     };
 
-    const loadCurriculum = async () => {
+    const loadCurriculum = async (gradeData) => {
         const newSubjects = [...subjects];
         let activities = await api.getActivities(currentStudent?.id);
 
-        georgia8thGradeData.forEach(gradeSubject => {
+        gradeData.forEach(gradeSubject => {
             // Check if subject already exists
             let subject = newSubjects.find(s => s.name === gradeSubject.name);
 
@@ -273,7 +275,7 @@ const SyllabusTracker = () => {
                             name: `${gradeTopic.name} (IXL ${gradeTopic.ixl})`,
                             category: 'IXL',
                             progress: 0,
-                            notes: `Auto-generated from Georgia Curriculum`
+                            notes: `Auto-generated from Curriculum Template`
                         });
                     }
                 }
@@ -283,6 +285,7 @@ const SyllabusTracker = () => {
         setSubjects(newSubjects);
         api.saveSyllabus(currentStudent?.id, newSubjects);
         api.saveActivities(currentStudent?.id, activities);
+        setShowTemplateMenu(false);
     };
 
     if (loading) return <div className="text-center py-12 text-gray-500">Loading syllabus...</div>;
@@ -294,12 +297,61 @@ const SyllabusTracker = () => {
                     <h1 className="text-3xl font-bold mb-2">Syllabus & Homework</h1>
                     <p className="text-gray-400">Track your course progress and assignments.</p>
                 </div>
-                <button
-                    onClick={loadCurriculum}
-                    className="bg-secondary hover:bg-secondary/80 text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 text-sm"
-                >
-                    <Download size={18} /> Load Georgia 8th Grade Curriculum
-                </button>
+                <div className="relative">
+                    <button
+                        onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+                        className="bg-secondary hover:bg-secondary/80 text-white px-4 py-3 rounded-xl font-bold transition-all transform active:scale-95 shadow-lg shadow-secondary/20 flex items-center gap-2"
+                    >
+                        <Download size={20} /> Load Grade Template
+                    </button>
+                    
+                    <AnimatePresence>
+                        {showTemplateMenu && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                className="absolute right-0 mt-2 w-72 bg-surface/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+                            >
+                                <div className="p-3 border-b border-white/5 bg-white/5">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Select Grade Curriculum</span>
+                                </div>
+                                <div className="p-2 space-y-1">
+                                    <button 
+                                        onClick={() => loadCurriculum(forsyth3rdGradeData)}
+                                        className="w-full text-left px-4 py-3 hover:bg-primary/10 rounded-xl transition-colors group flex items-center justify-between"
+                                    >
+                                        <div>
+                                            <div className="font-bold text-white group-hover:text-primary">3rd Grade</div>
+                                            <div className="text-[10px] text-gray-500">Forsyth County / Georgia GSE</div>
+                                        </div>
+                                        <ChevronDown size={16} className="-rotate-90 opacity-40" />
+                                    </button>
+                                    <button 
+                                        onClick={() => loadCurriculum(georgia8thGradeData)}
+                                        className="w-full text-left px-4 py-3 hover:bg-primary/10 rounded-xl transition-colors group flex items-center justify-between"
+                                    >
+                                        <div>
+                                            <div className="font-bold text-white group-hover:text-primary">8th Grade</div>
+                                            <div className="text-[10px] text-gray-500">Georgia Standards of Excellence</div>
+                                        </div>
+                                        <ChevronDown size={16} className="-rotate-90 opacity-40" />
+                                    </button>
+                                    <button 
+                                        className="w-full text-left px-4 py-3 opacity-50 cursor-not-allowed group flex items-center justify-between"
+                                        title="Paste your 9th grade syllabus to unlock"
+                                    >
+                                        <div>
+                                            <div className="font-bold text-white">9th Grade</div>
+                                            <div className="text-[10px] text-gray-500">Coming soon (Waiting for your list)</div>
+                                        </div>
+                                        <X size={16} className="opacity-40" />
+                                    </button>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
 
             {/* Add Subject */}
