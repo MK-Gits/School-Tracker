@@ -43,7 +43,12 @@ const Gradebook = () => {
 
     // Calculate grades per subject
     const subjectGrades = subjects.map(subject => {
-        const subjectTests = tests.filter(t => t.subject === subject.name && t.score !== undefined && t.score !== '');
+        const subjectTests = tests.filter(t => 
+            t.subject === subject.name && 
+            t.score !== undefined && 
+            t.score !== null && 
+            t.score !== ''
+        );
         if (subjectTests.length === 0) return { ...subject, avg: 'N/A', count: 0 };
 
         const total = subjectTests.reduce((sum, t) => sum + Number(t.score), 0);
@@ -59,7 +64,7 @@ const Gradebook = () => {
     });
 
     // Overall Average
-    const gradedTests = tests.filter(t => t.score !== undefined && t.score !== '');
+    const gradedTests = tests.filter(t => t.score !== undefined && t.score !== null && t.score !== '');
     const overallAvg = gradedTests.length > 0
         ? Math.round(gradedTests.reduce((sum, t) => sum + Number(t.score), 0) / gradedTests.length)
         : 0;

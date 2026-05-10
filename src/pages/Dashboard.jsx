@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Clock, TrendingUp, AlertCircle, BookOpen, Download, Upload, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
-import { loadData, saveData } from '../utils/storage';
+import { api } from '../utils/api';
+import { useStudent } from '../context/StudentContext';
 import { parseLocalDate, formatDateKey, startOfLocalDate } from '../utils/dateUtils';
 import { Link } from 'react-router-dom';
 
@@ -29,20 +30,44 @@ const StatCard = ({ title, value, subtitle, icon, color }) => {
 };
 
 const Dashboard = () => {
+    const { currentStudent } = useStudent();
     const [tests, setTests] = useState([]);
+    const [subjects, setSubjects] = useState([]);
+    const [dailyTasksData, setDailyTasksData] = useState({});
+    const [activitiesData, setActivitiesData] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [isCompletedTestsOpen, setIsCompletedTestsOpen] = useState(false);
 
-    // 1. Initial Data Load (Mount Only)
+    // 1. Initial Data Load from Database
     useEffect(() => {
-        const storedTests = loadData('tests_data', []);
-        setTests(storedTests);
-    }, []);
+        if (!currentStudent?.id) return;
+
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const [testsRes, syllabusRes, dailyRes, activitiesRes] = await Promise.all([
+                    api.getGrades(currentStudent.id),
+                    api.getSyllabus(currentStudent.id),
+                    api.getDailyTasks(currentStudent.id),
+                    api.getActivities(currentStudent.id)
+                ]);
+                
+                setTests(testsRes || []);
+                setSubjects(syllabusRes || []);
+                setDailyTasksData(dailyRes || {});
+                setActivitiesData(activitiesRes || []);
+            } catch (err) {
+                console.error("Failed to fetch dashboard data:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [currentStudent?.id]);
 
     // 2. Derive Stats and Activity via useMemo for efficiency and to avoid loops
     const dashboardData = useMemo(() => {
-        const subjects = loadData('syllabus_data', []);
-        const dailyTasksData = loadData('daily_tasks_data', {});
-        const activitiesData = loadData('activities_data', []);
         const todayKey = formatDateKey(new Date());
         const now = startOfLocalDate(new Date());
 
@@ -85,7 +110,11 @@ const Dashboard = () => {
 
         // Process Tests via current state
         const upcoming = tests
-            .filter(t => parseLocalDate(t.date) >= now && (!t.score || t.score === ''))
+            .filter(t => {
+                const date = parseLocalDate(t.date);
+                const hasScore = t.score !== undefined && t.score !== null && t.score !== '';
+                return date >= now && !hasScore;
+            })
             .sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date))
             .map(t => ({
                 ...t,
@@ -93,15 +122,19 @@ const Dashboard = () => {
             }));
 
         const completedArr = tests
-            .filter(t => parseLocalDate(t.date) < now || (t.score && t.score !== ''))
+            .filter(t => {
+                const date = parseLocalDate(t.date);
+                const hasScore = t.score !== undefined && t.score !== null && t.score !== '';
+                return date < now || hasScore;
+            })
             .sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date))
             .map(t => ({
                 ...t,
                 formattedDate: parseLocalDate(t.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
             }));
 
-        // Calculate Grades
-        const testsWithScores = tests.filter(t => t.score !== undefined && t.score !== '');
+        // Calculate Grades - Only count tests that HAVE a score
+        const testsWithScores = tests.filter(t => t.score !== undefined && t.score !== null && t.score !== '');
         let avgLetter = 'N/A';
         let avgPct = 0;
         if (testsWithScores.length > 0) {
@@ -146,30 +179,30 @@ const Dashboard = () => {
             completedTests: completedArr,
             nextTest: next
         };
-    }, [tests]);
+    }, [tests, subjects, dailyTasksData, activitiesData]);
 
     const { stats, recentActivity, pendingAssignments, upcomingTests, completedTests, nextTest } = dashboardData;
 
 
-    const updateTestScore = (id, score) => {
+    const updateTestScore = async (id, score) => {
         const updatedTests = tests.map(t => t.id === id ? { ...t, score } : t);
         setTests(updatedTests);
-        saveData('tests_data', updatedTests);
+        await api.saveGrades(currentStudent?.id, updatedTests);
     };
 
-    const deleteTest = (id) => {
+    const deleteTest = async (id) => {
         const updatedTests = tests.filter(t => t.id !== id);
         setTests(updatedTests);
-        saveData('tests_data', updatedTests);
+        await api.saveGrades(currentStudent?.id, updatedTests);
     };
 
-    const exportData = () => {
+    const exportData = async () => {
         const data = {
-            syllabus: loadData('syllabus_data', []),
-            activities: loadData('activities_data', []),
-            notes: loadData('study_notes_data', []),
-            daily: loadData('daily_tasks_data', []),
-            tests: loadData('tests_data', [])
+            syllabus: subjects,
+            activities: activitiesData,
+            notes: await api.getNotes(currentStudent?.id),
+            daily: dailyTasksData,
+            tests: tests
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -190,13 +223,13 @@ const Dashboard = () => {
         reader.onload = (e) => {
             try {
                 const data = JSON.parse(e.target.result);
-                if (data.syllabus) saveData('syllabus_data', data.syllabus);
-                if (data.activities) saveData('activities_data', data.activities);
-                if (data.notes) saveData('study_notes_data', data.notes);
-                if (data.daily) saveData('daily_tasks_data', data.daily);
-                if (data.tests) saveData('tests_data', data.tests);
+                if (data.syllabus) api.saveSyllabus(currentStudent?.id, data.syllabus);
+                if (data.activities) api.saveActivities(currentStudent?.id, data.activities);
+                if (data.notes) api.saveNotes(currentStudent?.id, data.notes);
+                if (data.daily) api.saveDailyTasks(currentStudent?.id, data.daily);
+                if (data.tests) api.saveGrades(currentStudent?.id, data.tests);
 
-                alert('Data restored successfully! The page will now reload.');
+                alert('Data restored to database successfully! The page will now reload.');
                 window.location.reload();
             } catch (error) {
                 console.error('Error importing data:', error);
@@ -205,6 +238,15 @@ const Dashboard = () => {
         };
         reader.readAsText(file);
     };
+
+    if (loading) return (
+        <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex flex-col items-center gap-4">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-gray-500 font-medium italic">Loading your education dashboard...</p>
+            </div>
+        </div>
+    );
 
     return (
         <div className="space-y-8">
