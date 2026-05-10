@@ -29,6 +29,7 @@ const SyllabusTracker = () => {
 
     // Search state
     const [searchTerm, setSearchTerm] = useState('');
+    const [showCompletedMap, setShowCompletedMap] = useState({});
 
     useEffect(() => {
         if (currentStudent?.id) {
@@ -232,11 +233,137 @@ const SyllabusTracker = () => {
         api.saveSyllabus(currentStudent?.id, updatedSubjects);
         setEditingTopicId(null);
     };
+    const renderTopic = (subject, topic) => {
+        if (editingTopicId === topic.id) {
+            return (
+                <div className="flex items-center gap-2 flex-1 w-full" onClick={e => e.stopPropagation()}>
+                    <input
+                        type="text"
+                        value={editTopicName}
+                        onChange={(e) => setEditTopicName(e.target.value)}
+                        className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-primary"
+                        placeholder="Topic Name"
+                    />
+                    <input
+                        type="text"
+                        value={editTopicIXL}
+                        onChange={(e) => setEditTopicIXL(e.target.value)}
+                        className="w-24 bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-primary"
+                        placeholder="IXL Code"
+                    />
+                    <button onClick={() => saveTopic(subject.id, topic.id)} className="p-1 text-green-500 hover:bg-green-500/10 rounded">
+                        <Save size={18} />
+                    </button>
+                    <button onClick={() => setEditingTopicId(null)} className="p-1 text-red-500 hover:bg-red-500/10 rounded">
+                        <X size={18} />
+                    </button>
+                </div>
+            );
+        }
+
+        return (
+            <>
+                <div className="flex items-center gap-4 flex-1">
+                    <div className={`p-1 text-gray-500 transition-colors ${searchTerm || topic.status === 'completed' ? 'opacity-20 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:text-white'}`}>
+                        <GripVertical size={18} />
+                    </div>
+                    <button
+                        onClick={() => updateTopicStatus(subject.id, topic.id, topic.status === 'completed' ? 'pending' : 'completed')}
+                        className={`flex-shrink-0 transition-colors ${topic.status === 'completed' ? 'text-green-500' : 'text-gray-500 hover:text-white'}`}
+                    >
+                        {topic.status === 'completed' ? <CheckCircle size={24} /> : <Circle size={24} />}
+                    </button>
+                    <div>
+                        <span className={`font-medium block ${topic.status === 'completed' ? 'text-gray-500 line-through' : ''}`}>
+                            {topic.name}
+                        </span>
+                        {topic.ixl && (
+                            <span className="text-xs text-accent flex items-center gap-1 mt-1">
+                                <Trophy size={12} /> IXL: {topic.ixl}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex-1 space-y-2">
+                    {/* Existing Homework (Migration Support) */}
+                    {topic.homework && (
+                        <div className="text-sm text-gray-400 italic mb-2">
+                            Legacy Note: {topic.homework}
+                        </div>
+                    )}
+
+                    {/* Internal Topic Tasks */}
+                    <div className="space-y-1">
+                        {topic.tasks && topic.tasks.map((task) => (
+                            <div key={task.id} className="flex items-center gap-2 group/item">
+                                <input
+                                    type="checkbox"
+                                    checked={task.completed}
+                                    onChange={() => toggleTopicTask(subject.id, topic.id, task.id)}
+                                    className="rounded border-white/20 bg-white/5 text-primary focus:ring-primary h-3 w-3 cursor-pointer"
+                                />
+                                <span className={`text-xs ${task.completed ? 'text-gray-500 line-through' : 'text-gray-300'}`}>
+                                    {task.text}
+                                </span>
+                                <button
+                                    onClick={() => deleteTopicTask(subject.id, topic.id, task.id)}
+                                    className="opacity-0 group-hover/item:opacity-100 p-0.5 text-red-500 hover:bg-red-500/10 rounded transition-all"
+                                >
+                                    <X size={10} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Add Task Input */}
+                    <div className="flex items-center gap-2 mt-2">
+                        <Plus size={12} className="text-gray-500" />
+                        <input
+                            type="text"
+                            placeholder="Add task (e.g., Read p.10)"
+                            className="flex-1 bg-transparent border-b border-white/10 focus:border-primary px-2 py-0.5 text-xs focus:outline-none"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    addTopicTask(subject.id, topic.id, e.target.value);
+                                    e.target.value = '';
+                                }
+                            }}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button
+                        onClick={() => startEditingTopic(topic)}
+                        className="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    >
+                        <Edit2 size={18} />
+                    </button>
+                    <button
+                        onClick={() => deleteTopic(subject.id, topic.id)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                        <Trash2 size={18} />
+                    </button>
+                </div>
+            </>
+        );
+    };
 
     const reorderTopics = (subjectId, newTopics) => {
+        // Find existing non-reordered topics (like completed ones) to maintain consistency if needed
+        // But Reorder.Group usually handles the whole list.
         const updatedSubjects = subjects.map(s => s.id === subjectId ? { ...s, topics: newTopics } : s);
         setSubjects(updatedSubjects);
         api.saveSyllabus(currentStudent?.id, updatedSubjects);
+    };
+
+    const toggleShowCompleted = (subjectId) => {
+        setShowCompletedMap(prev => ({
+            ...prev,
+            [subjectId]: !prev[subjectId]
+        }));
     };
 
     const loadCurriculum = async (gradeData) => {
@@ -501,136 +628,75 @@ const SyllabusTracker = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Topics List */}
-                                                <Reorder.Group
-                                                    axis="y"
-                                                    values={subject.topics}
-                                                    onReorder={(newTopics) => reorderTopics(subject.id, newTopics)}
-                                                    className="space-y-3"
-                                                >
-                                                    {subject.topics
-                                                        .filter(topic => topic.name.toLowerCase().includes(searchTerm.toLowerCase()) || (topic.ixl && topic.ixl.toLowerCase().includes(searchTerm.toLowerCase())))
-                                                        .map((topic) => (
-                                                            <Reorder.Item
-                                                                key={topic.id}
-                                                                value={topic}
-                                                                className="bg-white/5 rounded-xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between group"
-                                                                dragListener={!searchTerm} // Disable drag when searching
+                                                {/* Topics List - Split into Open and Completed */}
+                                                {(() => {
+                                                    const filtered = subject.topics.filter(topic => 
+                                                        topic.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                                        (topic.ixl && topic.ixl.toLowerCase().includes(searchTerm.toLowerCase()))
+                                                    );
+                                                    const openTopics = filtered.filter(t => t.status !== 'completed');
+                                                    const completedTopics = filtered.filter(t => t.status === 'completed');
+                                                    const isShowingCompleted = showCompletedMap[subject.id];
+
+                                                    return (
+                                                        <div className="space-y-6">
+                                                            {/* Open Topics */}
+                                                            <Reorder.Group
+                                                                axis="y"
+                                                                values={subject.topics}
+                                                                onReorder={(newTopics) => reorderTopics(subject.id, newTopics)}
+                                                                className="space-y-3"
                                                             >
-                                                                {editingTopicId === topic.id ? (
-                                                                    <div className="flex items-center gap-2 flex-1 w-full">
-                                                                        <input
-                                                                            type="text"
-                                                                            value={editTopicName}
-                                                                            onChange={(e) => setEditTopicName(e.target.value)}
-                                                                            className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-primary"
-                                                                            placeholder="Topic Name"
-                                                                        />
-                                                                        <input
-                                                                            type="text"
-                                                                            value={editTopicIXL}
-                                                                            onChange={(e) => setEditTopicIXL(e.target.value)}
-                                                                            className="w-24 bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-primary"
-                                                                            placeholder="IXL Code"
-                                                                        />
-                                                                        <button onClick={() => saveTopic(subject.id, topic.id)} className="p-1 text-green-500 hover:bg-green-500/10 rounded">
-                                                                            <Save size={18} />
-                                                                        </button>
-                                                                        <button onClick={() => setEditingTopicId(null)} className="p-1 text-red-500 hover:bg-red-500/10 rounded">
-                                                                            <X size={18} />
-                                                                        </button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <>
-                                                                        <div className="flex items-center gap-4 flex-1">
-                                                                            <div className={`p-1 text-gray-500 transition-colors ${searchTerm ? 'opacity-20 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:text-white'}`}>
-                                                                                <GripVertical size={18} />
-                                                                            </div>
-                                                                            <button
-                                                                                onClick={() => updateTopicStatus(subject.id, topic.id, topic.status === 'completed' ? 'pending' : 'completed')}
-                                                                                className={`flex-shrink-0 transition-colors ${topic.status === 'completed' ? 'text-green-500' : 'text-gray-500 hover:text-white'}`}
+                                                                {openTopics.map((topic) => (
+                                                                    <Reorder.Item
+                                                                        key={topic.id}
+                                                                        value={topic}
+                                                                        className="bg-white/5 rounded-xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between group border border-transparent hover:border-white/10 transition-colors"
+                                                                        dragListener={!searchTerm}
+                                                                    >
+                                                                        {renderTopic(subject, topic)}
+                                                                    </Reorder.Item>
+                                                                ))}
+                                                            </Reorder.Group>
+
+                                                            {/* Completed Topics Section */}
+                                                            {completedTopics.length > 0 && (
+                                                                <div className="pt-4 border-t border-white/5">
+                                                                    <button
+                                                                        onClick={() => toggleShowCompleted(subject.id)}
+                                                                        className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-green-500 transition-colors group"
+                                                                    >
+                                                                        <CheckCircle size={14} className={isShowingCompleted ? "text-green-500" : ""} />
+                                                                        {isShowingCompleted ? 'Hide' : 'Show'} Completed Topics ({completedTopics.length})
+                                                                        <ChevronDown size={14} className={`transition-transform duration-300 ${isShowingCompleted ? 'rotate-180' : ''}`} />
+                                                                    </button>
+
+                                                                    <AnimatePresence>
+                                                                        {isShowingCompleted && (
+                                                                            <motion.div
+                                                                                initial={{ opacity: 0, height: 0 }}
+                                                                                animate={{ opacity: 1, height: 'auto' }}
+                                                                                exit={{ opacity: 0, height: 0 }}
+                                                                                className="overflow-hidden"
                                                                             >
-                                                                                {topic.status === 'completed' ? <CheckCircle size={24} /> : <Circle size={24} />}
-                                                                            </button>
-                                                                            <div>
-                                                                                <span className={`font-medium block ${topic.status === 'completed' ? 'text-gray-500 line-through' : ''}`}>
-                                                                                    {topic.name}
-                                                                                </span>
-                                                                                {topic.ixl && (
-                                                                                    <span className="text-xs text-accent flex items-center gap-1 mt-1">
-                                                                                        <Trophy size={12} /> IXL: {topic.ixl}
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <div className="flex-1 space-y-2">
-                                                                            {/* Existing Homework (Migration Support) */}
-                                                                            {topic.homework && (
-                                                                                <div className="text-sm text-gray-400 italic mb-2">
-                                                                                    Legacy Note: {topic.homework}
-                                                                                </div>
-                                                                            )}
-
-                                                                            {/* Internal Topic Tasks */}
-                                                                            <div className="space-y-1">
-                                                                                {topic.tasks && topic.tasks.map((task) => (
-                                                                                    <div key={task.id} className="flex items-center gap-2 group/item">
-                                                                                        <input
-                                                                                            type="checkbox"
-                                                                                            checked={task.completed}
-                                                                                            onChange={() => toggleTopicTask(subject.id, topic.id, task.id)}
-                                                                                            className="rounded border-white/20 bg-white/5 text-primary focus:ring-primary h-3 w-3"
-                                                                                        />
-                                                                                        <span className={`text-xs ${task.completed ? 'text-gray-500 line-through' : 'text-gray-300'}`}>
-                                                                                            {task.text}
-                                                                                        </span>
-                                                                                        <button
-                                                                                            onClick={() => deleteTopicTask(subject.id, topic.id, task.id)}
-                                                                                            className="opacity-0 group-hover/item:opacity-100 p-0.5 text-red-500 hover:bg-red-500/10 rounded transition-all"
+                                                                                <div className="space-y-3 mt-4">
+                                                                                    {completedTopics.map((topic) => (
+                                                                                        <div
+                                                                                            key={topic.id}
+                                                                                            className="bg-green-500/5 rounded-xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between group border border-green-500/10 opacity-70 hover:opacity-100 transition-all"
                                                                                         >
-                                                                                            <X size={10} />
-                                                                                        </button>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-
-                                                                            {/* Add Task Input */}
-                                                                            <div className="flex items-center gap-2 mt-2">
-                                                                                <Plus size={12} className="text-gray-500" />
-                                                                                <input
-                                                                                    type="text"
-                                                                                    placeholder="Add task (e.g., Read p.10)"
-                                                                                    className="flex-1 bg-transparent border-b border-white/10 focus:border-primary px-2 py-0.5 text-xs focus:outline-none"
-                                                                                    onKeyDown={(e) => {
-                                                                                        if (e.key === 'Enter') {
-                                                                                            addTopicTask(subject.id, topic.id, e.target.value);
-                                                                                            e.target.value = '';
-                                                                                        }
-                                                                                    }}
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                                            <button
-                                                                                onClick={() => startEditingTopic(topic)}
-                                                                                className="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                                                                            >
-                                                                                <Edit2 size={18} />
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => deleteTopic(subject.id, topic.id)}
-                                                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                                                            >
-                                                                                <Trash2 size={18} />
-                                                                            </button>
-                                                                        </div>
-                                                                    </>
-                                                                )}
-                                                            </Reorder.Item>
-                                                        ))}
-                                                </Reorder.Group>
+                                                                                            {renderTopic(subject, topic)}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </motion.div>
+                                                                        )}
+                                                                    </AnimatePresence>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                                 {subject.topics.length === 0 && (
                                                     <p className="text-center text-gray-500 py-4">No topics added yet.</p>
                                                 )}
