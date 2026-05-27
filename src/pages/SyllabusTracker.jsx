@@ -6,6 +6,9 @@ import { api } from '../utils/api';
 import { useStudent } from '../context/StudentContext';
 import { georgia8thGradeData } from '../data/georgia8thGrade';
 import { forsyth3rdGradeData } from '../data/forsyth3rdGrade';
+import { sawnee3rdGradeData } from '../data/sawnee3rdGrade';
+import { westForsyth9thGradeData } from '../data/westForsyth9thGrade';
+import { summerPythonCourseData } from '../data/summerPythonCourse';
 
 const SyllabusTracker = () => {
     const { currentStudent } = useStudent();
@@ -366,7 +369,7 @@ const SyllabusTracker = () => {
         }));
     };
 
-    const loadCurriculum = async (gradeData) => {
+        const loadCurriculum = async (gradeData) => {
         const newSubjects = [...subjects];
         let activities = await api.getActivities(currentStudent?.id);
 
@@ -387,12 +390,19 @@ const SyllabusTracker = () => {
                 // Check if topic already exists
                 if (!subject.topics.find(t => t.name === gradeTopic.name)) {
                     const topicId = Date.now() + Math.random();
+                    // For Mathematics, preserve tasks defined in the template
+                    const tasks = (gradeSubject.name === "Mathematics" && gradeTopic.tasks) ? gradeTopic.tasks.map(t => ({
+                        id: Date.now() + Math.random(),
+                        text: t.name,
+                        completed: false
+                    })) : [];
                     subject.topics.push({
                         id: topicId,
                         name: gradeTopic.name,
                         ixl: gradeTopic.ixl || '',
                         status: 'pending',
-                        homework: ''
+                        homework: '',
+                        tasks // attach tasks array (empty for non‑Math subjects)
                     });
 
                     // Auto-create activity if IXL exists
@@ -429,7 +439,7 @@ const SyllabusTracker = () => {
                         onClick={() => setShowTemplateMenu(!showTemplateMenu)}
                         className="bg-secondary hover:bg-secondary/80 text-white px-4 py-3 rounded-xl font-bold transition-all transform active:scale-95 shadow-lg shadow-secondary/20 flex items-center gap-2"
                     >
-                        <Download size={20} /> Load Grade Template
+                        <Download size={20} /> Load Template
                     </button>
                     
                     <AnimatePresence>
@@ -441,7 +451,7 @@ const SyllabusTracker = () => {
                                 className="absolute right-0 mt-2 w-72 bg-surface/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
                             >
                                 <div className="p-3 border-b border-white/5 bg-white/5">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Select Grade Curriculum</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Select Curriculum or Course</span>
                                 </div>
                                 <div className="p-2 space-y-1">
                                     <button 
@@ -451,6 +461,16 @@ const SyllabusTracker = () => {
                                         <div>
                                             <div className="font-bold text-white group-hover:text-primary">3rd Grade</div>
                                             <div className="text-[10px] text-gray-500">Forsyth County / Georgia GSE</div>
+                                        </div>
+                                        <ChevronDown size={16} className="-rotate-90 opacity-40" />
+                                    </button>
+                                    <button 
+                                         onClick={() => loadCurriculum(sawnee3rdGradeData)}
+                                         className="w-full text-left px-4 py-3 hover:bg-primary/10 rounded-xl transition-colors group flex items-center justify-between"
+                                    >
+                                        <div>
+                                            <div className="font-bold text-white group-hover:text-primary">Sawnee 3rd Grade</div>
+                                            <div className="text-[10px] text-gray-500">Sawnee Elementary / Forsyth County</div>
                                         </div>
                                         <ChevronDown size={16} className="-rotate-90 opacity-40" />
                                     </button>
@@ -465,14 +485,24 @@ const SyllabusTracker = () => {
                                         <ChevronDown size={16} className="-rotate-90 opacity-40" />
                                     </button>
                                     <button 
-                                        className="w-full text-left px-4 py-3 opacity-50 cursor-not-allowed group flex items-center justify-between"
-                                        title="Paste your 9th grade syllabus to unlock"
+                                        onClick={() => loadCurriculum(summerPythonCourseData)}
+                                        className="w-full text-left px-4 py-3 hover:bg-primary/10 rounded-xl transition-colors group flex items-center justify-between"
                                     >
                                         <div>
-                                            <div className="font-bold text-white">9th Grade</div>
-                                            <div className="text-[10px] text-gray-500">Coming soon (Waiting for your list)</div>
+                                            <div className="font-bold text-white group-hover:text-primary">Summer Python Course</div>
+                                            <div className="text-[10px] text-gray-500">Complete Python Mastery</div>
                                         </div>
-                                        <X size={16} className="opacity-40" />
+                                        <ChevronDown size={16} className="-rotate-90 opacity-40" />
+                                    </button>
+                                    <button 
+                                        onClick={() => loadCurriculum(westForsyth9thGradeData)}
+                                        className="w-full text-left px-4 py-3 hover:bg-primary/10 rounded-xl transition-colors group flex items-center justify-between"
+                                    >
+                                        <div>
+                                            <div className="font-bold text-white group-hover:text-primary">9th Grade</div>
+                                            <div className="text-[10px] text-gray-500">West Forsyth High School</div>
+                                        </div>
+                                        <ChevronDown size={16} className="-rotate-90 opacity-40" />
                                     </button>
                                 </div>
                             </motion.div>
