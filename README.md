@@ -1,4 +1,12 @@
-# React + Vite
+# School Tracker
+
+## Dev Local:
+URL : jdbc:postgresql://localhost:5432/postgres
+host: localhost / 5432
+ 
+Run the backend and front end in two git bash:
+backend command : node server/index.js
+front end command : npm run dev
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
