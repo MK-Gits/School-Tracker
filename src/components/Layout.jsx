@@ -168,7 +168,7 @@ const Layout = ({ children }) => {
                                 initial={{ scale: 0.9, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 0.9, opacity: 0 }}
-                                className="relative bg-surface p-8 rounded-3xl border border-white/10 w-full max-w-md shadow-2xl"
+                                className="relative bg-surface p-8 rounded-3xl border border-white/10 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
                             >
                                 <button
                                     onClick={() => setIsProfileModalOpen(false)}

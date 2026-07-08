@@ -4,7 +4,7 @@
 URL : jdbc:postgresql://localhost:5432/postgres
 host: localhost / 5432
  
-Run the backend and front end in two git bash:
+## Run the backend and front end in two git bash:
 backend command : node server/index.js
 front end command : npm run dev
 
