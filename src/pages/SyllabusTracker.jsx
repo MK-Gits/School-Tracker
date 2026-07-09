@@ -68,7 +68,7 @@ const SyllabusTracker = () => {
         const ixlCode = newTopicIXL.trim();
 
         // Add topic to syllabus
-        setSubjects(subjects.map(s => {
+        const updatedSubjects = subjects.map(s => {
             if (s.id === subjectId) {
                 return {
                     ...s,
@@ -77,12 +77,15 @@ const SyllabusTracker = () => {
                         name: newTopicName,
                         ixl: ixlCode,
                         status: 'pending',
-                        homework: ''
+                        homework: '',
+                        tasks: []
                     }]
                 };
             }
             return s;
-        }));
+        });
+        setSubjects(updatedSubjects);
+        api.saveSyllabus(currentStudent?.id, updatedSubjects);
 
         // If IXL code is present, auto-create activity
         if (ixlCode) {
