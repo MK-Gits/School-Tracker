@@ -357,10 +357,14 @@ const SyllabusTracker = () => {
         );
     };
 
-    const reorderTopics = (subjectId, newTopics) => {
-        // Find existing non-reordered topics (like completed ones) to maintain consistency if needed
-        // But Reorder.Group usually handles the whole list.
-        const updatedSubjects = subjects.map(s => s.id === subjectId ? { ...s, topics: newTopics } : s);
+    const reorderTopics = (subjectId, newOpenTopics) => {
+        const updatedSubjects = subjects.map(s => {
+            if (s.id === subjectId) {
+                const completedTopics = s.topics.filter(t => t.status === 'completed');
+                return { ...s, topics: [...newOpenTopics, ...completedTopics] };
+            }
+            return s;
+        });
         setSubjects(updatedSubjects);
         api.saveSyllabus(currentStudent?.id, updatedSubjects);
     };
@@ -676,7 +680,7 @@ const SyllabusTracker = () => {
                                                             {/* Open Topics */}
                                                             <Reorder.Group
                                                                 axis="y"
-                                                                values={subject.topics}
+                                                                values={openTopics}
                                                                 onReorder={(newTopics) => reorderTopics(subject.id, newTopics)}
                                                                 className="space-y-3"
                                                             >

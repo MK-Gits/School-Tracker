@@ -321,6 +321,124 @@ app.post('/api/grades/:studentId/replace', async (req, res) => {
   }
 });
 
+// --- CLUBS ---
+app.get('/api/clubs/:studentId', async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const clubs = await pool.query('SELECT * FROM clubs WHERE student_id = $1 ORDER BY joined_at DESC', [studentId]);
+    const result = [];
+    for (let i = 0; i < clubs.rows.length; i++) {
+      const club = clubs.rows[i];
+      const tasks = await pool.query('SELECT * FROM club_tasks WHERE club_id = $1 ORDER BY is_completed ASC, due_date ASC', [club.id]);
+      const events = await pool.query('SELECT * FROM club_events WHERE club_id = $1 ORDER BY event_date ASC', [club.id]);
+      const activities = await pool.query('SELECT * FROM club_activities WHERE club_id = $1 ORDER BY activity_date DESC', [club.id]);
+      const updates = await pool.query('SELECT * FROM club_updates WHERE club_id = $1 ORDER BY created_at DESC', [club.id]);
+      
+      result.push({
+        id: club.id,
+        name: club.name,
+        role: club.role,
+        description: club.description,
+        color: club.color,
+        joinedAt: club.joined_at,
+        tasks: tasks.rows.map(t => ({
+          id: t.id,
+          text: t.text,
+          dueDate: t.due_date ? t.due_date.toISOString().split('T')[0] : '',
+          completed: t.is_completed
+        })),
+        events: events.rows.map(e => ({
+          id: e.id,
+          title: e.title,
+          date: e.event_date ? e.event_date.toISOString().split('T')[0] : '',
+          location: e.location,
+          notes: e.notes
+        })),
+        activities: activities.rows.map(a => ({
+          id: a.id,
+          date: a.activity_date ? a.activity_date.toISOString().split('T')[0] : '',
+          hours: parseFloat(a.hours) || 0,
+          description: a.description
+        })),
+        updates: updates.rows.map(u => ({
+          id: u.id,
+          title: u.title,
+          content: u.content,
+          createdAt: u.created_at
+        }))
+      });
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/clubs/:studentId/replace', async (req, res) => {
+  const { studentId } = req.params;
+  const clubs = req.body || [];
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM clubs WHERE student_id = $1', [studentId]);
+    
+    if (Array.isArray(clubs)) {
+      for (let i = 0; i < clubs.length; i++) {
+        const club = clubs[i];
+        await client.query(
+          'INSERT INTO clubs (id, student_id, name, role, description, color, joined_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [club.id, studentId, club.name, club.role || 'Member', club.description || '', club.color || 'primary', club.joinedAt ? new Date(club.joinedAt) : new Date()]
+        );
+        
+        const tasks = Array.isArray(club.tasks) ? club.tasks : [];
+        for (let j = 0; j < tasks.length; j++) {
+          const task = tasks[j];
+          await client.query(
+            'INSERT INTO club_tasks (id, club_id, text, due_date, is_completed) VALUES ($1, $2, $3, $4, $5)',
+            [task.id, club.id, task.text, task.dueDate ? new Date(task.dueDate) : null, task.completed || false]
+          );
+        }
+
+        const events = Array.isArray(club.events) ? club.events : [];
+        for (let j = 0; j < events.length; j++) {
+          const event = events[j];
+          await client.query(
+            'INSERT INTO club_events (id, club_id, title, event_date, location, notes) VALUES ($1, $2, $3, $4, $5, $6)',
+            [event.id, club.id, event.title, new Date(event.date), event.location || '', event.notes || '']
+          );
+        }
+
+        const activities = Array.isArray(club.activities) ? club.activities : [];
+        for (let j = 0; j < activities.length; j++) {
+          const activity = activities[j];
+          await client.query(
+            'INSERT INTO club_activities (id, club_id, activity_date, hours, description) VALUES ($1, $2, $3, $4, $5)',
+            [activity.id, club.id, new Date(activity.date), activity.hours || 0, activity.description || '']
+          );
+        }
+
+        const updates = Array.isArray(club.updates) ? club.updates : [];
+        for (let j = 0; j < updates.length; j++) {
+          const update = updates[j];
+          await client.query(
+            'INSERT INTO club_updates (id, club_id, title, content, created_at) VALUES ($1, $2, $3, $4, $5)',
+            [update.id, club.id, update.title, update.content, update.createdAt ? new Date(update.createdAt) : new Date()]
+          );
+        }
+      }
+    }
+    
+    await client.query('COMMIT');
+    res.json({ message: 'Clubs updated successfully' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 // --- MIGRATION ---
 app.post('/api/migrate', async (req, res) => {
   const { profiles, syllabus, activities, notes, dailyTasks, gradebook } = req.body;

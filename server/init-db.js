@@ -82,6 +82,49 @@ export const initDb = async () => {
         grade_value VARCHAR(10),
         test_date TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS clubs (
+        id VARCHAR(255) PRIMARY KEY,
+        student_id VARCHAR(255) REFERENCES students(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        role VARCHAR(100) DEFAULT 'Member',
+        description TEXT,
+        color VARCHAR(50) DEFAULT 'primary',
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS club_tasks (
+        id VARCHAR(255) PRIMARY KEY,
+        club_id VARCHAR(255) REFERENCES clubs(id) ON DELETE CASCADE,
+        text TEXT NOT NULL,
+        due_date TIMESTAMP,
+        is_completed BOOLEAN DEFAULT false
+      );
+
+      CREATE TABLE IF NOT EXISTS club_events (
+        id VARCHAR(255) PRIMARY KEY,
+        club_id VARCHAR(255) REFERENCES clubs(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        event_date TIMESTAMP NOT NULL,
+        location VARCHAR(255),
+        notes TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS club_activities (
+        id VARCHAR(255) PRIMARY KEY,
+        club_id VARCHAR(255) REFERENCES clubs(id) ON DELETE CASCADE,
+        activity_date TIMESTAMP NOT NULL,
+        hours NUMERIC(5, 2) DEFAULT 0.00,
+        description TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS club_updates (
+        id VARCHAR(255) PRIMARY KEY,
+        club_id VARCHAR(255) REFERENCES clubs(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        content TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     await client.query('COMMIT');

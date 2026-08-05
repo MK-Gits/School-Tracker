@@ -32,6 +32,7 @@ export const api = {
           case 'notes': await this.saveNotes(item.studentId, item.data, true); success = true; break;
           case 'daily': await this.saveDailyTasks(item.studentId, item.data, true); success = true; break;
           case 'grades': await this.saveGrades(item.studentId, item.data, true); success = true; break;
+          case 'clubs': await this.saveClubs(item.studentId, item.data, true); success = true; break;
         }
         if (!success) remaining.push(item);
       } catch (err) {
@@ -170,6 +171,27 @@ export const api = {
       if (isSyncing) throw err;
       console.warn("Offline: Saving grades to sync queue");
       addToQueue('grades', studentId, grades);
+      return { offline: true };
+    }
+  },
+
+  // --- CLUBS ---
+  async getClubs(studentId) {
+    const res = await fetch(`${API_URL}/clubs/${studentId}`);
+    return res.json();
+  },
+  async saveClubs(studentId, clubs, isSyncing = false) {
+    try {
+      const res = await fetch(`${API_URL}/clubs/${studentId}/replace`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(clubs)
+      });
+      return res.json();
+    } catch (err) {
+      if (isSyncing) throw err;
+      console.warn("Offline: Saving clubs to sync queue");
+      addToQueue('clubs', studentId, clubs);
       return { offline: true };
     }
   },

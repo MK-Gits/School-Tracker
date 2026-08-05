@@ -1,12 +1,21 @@
 # School Tracker
 
+## Run the application (frontend & backend concurrently):
+```bash
+npm run dev
+```
 ## Dev Local:
 URL : jdbc:postgresql://localhost:5432/postgres
 host: localhost / 5432
  
-## Run the backend and front end in two git bash:
-backend command : node server/index.js
-front end command : npm run dev
+## Features
+- **Dashboard**: High-level overview of grade progress, daily tasks, and syllabus tracking.
+- **Daily Tracker**: Simple schedule planning and checkboxes for daily habits.
+- **Syllabus & Homework**: Reorderable syllabus curriculum tracker supporting custom grade templates and offline-first reordering.
+- **Gradebook**: Grade average calculators and subject test scores.
+- **Activities**: Track skill, coding, and sports progress.
+- **Study Notes**: Rich text study note-taking by subject.
+- **Clubs Tracker**: Comprehensive directory for tracking high school clubs, leadership roles, upcoming meetings, tasks, logged volunteer hours, and major milestone updates.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
