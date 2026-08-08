@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Trash2, Calculator, Atom, Beaker, FileText, BookOpen, Edit2, Save, X } from 'lucide-react';
+import { Plus, Search, Trash2, Calculator, Atom, Beaker, FileText, BookOpen, Edit2, Save, X, Star } from 'lucide-react';
 import { api } from '../utils/api';
 import { useStudent } from '../context/StudentContext';
 import ReactMarkdown from 'react-markdown';
@@ -16,6 +16,8 @@ const StudyNotes = () => {
     const [notes, setNotes] = useState([]);
     const [newNote, setNewNote] = useState({ title: '', content: '', category: 'Math' });
     const [searchQuery, setSearchQuery] = useState('');
+    const [filterCategory, setFilterCategory] = useState('All');
+    const [sortOption, setSortOption] = useState('Newest');
     const [isAdding, setIsAdding] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -42,7 +44,14 @@ const StudyNotes = () => {
 
     const addNote = () => {
         if (!newNote.title.trim() || !newNote.content.trim()) return;
-        const updatedNotes = [{ id: Date.now(), ...newNote }, ...notes];
+        const timestamp = new Date().toISOString();
+        const updatedNotes = [{
+            id: Date.now(),
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            pinned: false,
+            ...newNote
+        }, ...notes];
         setNotes(updatedNotes);
         api.saveNotes(currentStudent?.id, updatedNotes);
         setNewNote({ title: '', content: '', category: 'Math' });
@@ -50,7 +59,11 @@ const StudyNotes = () => {
     };
 
     const saveEdit = () => {
-        const updatedNotes = notes.map(n => n.id === editingNoteId ? { ...n, ...editNoteData } : n);
+        const updatedNotes = notes.map(n => n.id === editingNoteId ? {
+            ...n,
+            ...editNoteData,
+            updatedAt: new Date().toISOString()
+        } : n);
         setNotes(updatedNotes);
         api.saveNotes(currentStudent?.id, updatedNotes);
         setEditingNoteId(null);
@@ -62,11 +75,42 @@ const StudyNotes = () => {
         api.saveNotes(currentStudent?.id, updatedNotes);
     };
 
+    const togglePinNote = (id) => {
+        const updatedNotes = notes.map(n => n.id === id ? {
+            ...n,
+            pinned: !n.pinned,
+            updatedAt: new Date().toISOString()
+        } : n);
+        setNotes(updatedNotes);
+        api.saveNotes(currentStudent?.id, updatedNotes);
+    };
+
     const filteredNotes = notes.filter(n =>
-        n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         n.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        n.category.toLowerCase().includes(searchQuery.toLowerCase())
+        n.category.toLowerCase().includes(searchQuery.toLowerCase())) &&
+        (filterCategory === 'All' || n.category === filterCategory)
     );
+
+    const sortedNotes = [...filteredNotes].sort((a, b) => {
+        if ((a.pinned ? 1 : 0) !== (b.pinned ? 1 : 0)) {
+            return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+        }
+
+        if (sortOption === 'Newest') {
+            return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+        }
+        if (sortOption === 'Oldest') {
+            return new Date(a.updatedAt || a.createdAt || 0) - new Date(b.updatedAt || b.createdAt || 0);
+        }
+        if (sortOption === 'Title') {
+            return a.title.localeCompare(b.title);
+        }
+        return 0;
+    });
+
+    const pinnedNotes = sortedNotes.filter(n => n.pinned);
+    const visibleNotes = sortedNotes.filter(n => !n.pinned);
 
     const handleCopy = (text) => {
         navigator.clipboard.writeText(text);
@@ -78,8 +122,13 @@ const StudyNotes = () => {
         switch (cat) {
             case 'Math': return 'from-blue-500/20 to-cyan-500/20 text-blue-400 border-blue-500/30';
             case 'Science': return 'from-green-500/20 to-emerald-500/20 text-green-400 border-green-500/30';
+            case 'Biology': return 'from-emerald-500/20 to-green-500/20 text-emerald-400 border-emerald-500/30';
             case 'History': return 'from-amber-500/20 to-orange-500/20 text-amber-400 border-amber-500/30';
             case 'English': return 'from-purple-500/20 to-pink-500/20 text-purple-400 border-purple-500/30';
+            case 'Social': return 'from-fuchsia-500/20 to-violet-500/20 text-fuchsia-400 border-fuchsia-500/30';
+            case 'Business Tech': return 'from-cyan-500/20 to-sky-500/20 text-cyan-400 border-cyan-500/30';
+            case 'Health': return 'from-rose-500/20 to-pink-500/20 text-rose-400 border-rose-500/30';
+            case 'Spanish': return 'from-orange-500/20 to-amber-500/20 text-orange-400 border-orange-500/30';
             default: return 'from-gray-500/20 to-slate-500/20 text-gray-400 border-white/10';
         }
     };
@@ -116,7 +165,7 @@ const StudyNotes = () => {
         return processed;
     };
 
-    const categories = ['Math', 'Science', 'History', 'English', 'Other'];
+    const categories = ['Math', 'English', 'Biology', 'Social', 'Business Tech', 'Health', 'Spanish', 'Science', 'History', 'Other'];
 
     if (loading) return <div className="text-center py-12 text-gray-500">Loading notes...</div>;
 
@@ -136,16 +185,45 @@ const StudyNotes = () => {
                 </button>
             </div>
 
-            {/* Search Bar */}
-            <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search through your notes..."
-                    className="w-full bg-surface/50 backdrop-blur-xl border border-white/10 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-primary transition-colors text-white"
-                />
+            {/* Search + Filters */}
+            <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr_1fr] items-center">
+                <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search through your notes..."
+                        className="w-full bg-surface/50 backdrop-blur-xl border border-white/10 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-primary transition-colors text-white"
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <label className="flex flex-col text-sm text-gray-400">
+                        Category Filter
+                        <select
+                            value={filterCategory}
+                            onChange={(e) => setFilterCategory(e.target.value)}
+                            className="mt-2 bg-surface/50 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-primary text-white"
+                        >
+                            <option value="All">All</option>
+                            {categories.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <label className="flex flex-col text-sm text-gray-400">
+                        Sort By
+                        <select
+                            value={sortOption}
+                            onChange={(e) => setSortOption(e.target.value)}
+                            className="mt-2 bg-surface/50 border border-white/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-primary text-white"
+                        >
+                            <option value="Newest">Newest</option>
+                            <option value="Oldest">Oldest</option>
+                            <option value="Title">Title</option>
+                        </select>
+                    </label>
+                </div>
             </div>
 
             {/* Add Note Form */}
@@ -220,8 +298,101 @@ const StudyNotes = () => {
             </AnimatePresence>
 
             {/* Notes Grid */}
+            {pinnedNotes.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-lg font-semibold text-white">Pinned Notes</h2>
+                            <p className="text-sm text-gray-400">Keep your most important notes at the top.</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {pinnedNotes.map((note) => (
+                            <motion.div
+                                key={note.id}
+                                layout
+                                onClick={() => !editingNoteId && setSelectedNote(note)}
+                                className={`bg-surface/50 backdrop-blur-xl p-6 rounded-3xl border border-white/10 relative group cursor-pointer hover:border-primary/50 transition-colors shadow-lg hover:shadow-primary/5`}
+                            >
+                                {editingNoteId === note.id ? (
+                                    <div className="space-y-4">
+                                        <input
+                                            type="text"
+                                            value={editNoteData.title}
+                                            onChange={(e) => setEditNoteData({ ...editNoteData, title: e.target.value })}
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                        />
+                                        <select
+                                            value={editNoteData.category}
+                                            onChange={(e) => setEditNoteData({ ...editNoteData, category: e.target.value })}
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary text-white"
+                                        >
+                                            {categories.map(c => <option key={c} value={c} className="bg-[#1a1c20]">{c}</option>)}
+                                        </select>
+                                        <textarea
+                                            value={editNoteData.content}
+                                            onChange={(e) => setEditNoteData({ ...editNoteData, content: e.target.value })}
+                                            rows="3"
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                        />
+                                        <div className="flex gap-2">
+                                            <button onClick={saveEdit} className="flex-1 bg-primary py-2 rounded-xl text-xs font-bold">Save</button>
+                                            <button onClick={() => setEditingNoteId(null)} className="px-4 bg-white/5 py-2 rounded-xl text-xs font-bold">Cancel</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className={`p-3 rounded-2xl bg-primary/10 text-primary`}>
+                                                {note.category === 'Math' ? <Calculator size={20} /> :
+                                                 note.category === 'Science' ? <Atom size={20} /> :
+                                                 note.category === 'Biology' ? <Beaker size={20} /> :
+                                                 note.category === 'English' ? <BookOpen size={20} /> :
+                                                 note.category === 'Social' ? <BookOpen size={20} /> :
+                                                 note.category === 'Business Tech' ? <FileText size={20} /> :
+                                                 note.category === 'Health' ? <Atom size={20} /> :
+                                                 note.category === 'Spanish' ? <BookOpen size={20} /> : <FileText size={20} />}
+                                            </div>
+                                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => { e.stopPropagation(); togglePinNote(note.id); }} className="p-2 text-yellow-400 hover:text-yellow-300 hover:bg-white/5 rounded-lg">
+                                                    <Star size={16} />
+                                                </button>
+                                                <button onClick={(e) => { e.stopPropagation(); startEditing(note); }} className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg">
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="inline-block px-3 py-1 rounded-full bg-white/5 text-[10px] font-bold uppercase tracking-widest text-primary mb-2">
+                                            {note.category}
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3 mb-3">
+                                            <h3 className="text-xl font-bold text-white line-clamp-2">{note.title}</h3>
+                                            <span className="text-[11px] uppercase tracking-[0.2em] text-gray-400">Pinned</span>
+                                        </div>
+                                        <div className="text-gray-400 text-sm leading-relaxed prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-1 prose-ul:my-1 line-clamp-4">
+                                            <ReactMarkdown 
+                                                remarkPlugins={[remarkGfm, remarkMath]}
+                                                rehypePlugins={[rehypeKatex]}
+                                            >
+                                                {processNoteContent(note.content)}
+                                            </ReactMarkdown>
+                                        </div>
+                                        <div className="mt-4 pt-4 border-t border-white/5 text-[10px] text-gray-500 font-bold uppercase tracking-wider group-hover:text-primary transition-colors">
+                                            Updated {new Date(note.updatedAt || note.createdAt).toLocaleDateString()}
+                                        </div>
+                                    </>
+                                )}
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredNotes.map((note) => (
+                {visibleNotes.map((note) => (
                     <motion.div
                         key={note.id}
                         layout
@@ -260,13 +431,21 @@ const StudyNotes = () => {
                                     <div className={`p-3 rounded-2xl bg-primary/10 text-primary`}>
                                         {note.category === 'Math' ? <Calculator size={20} /> :
                                          note.category === 'Science' ? <Atom size={20} /> :
-                                         note.category === 'Biology' ? <Beaker size={20} /> : <FileText size={20} />}
+                                         note.category === 'Biology' ? <Beaker size={20} /> :
+                                         note.category === 'English' ? <BookOpen size={20} /> :
+                                         note.category === 'Social' ? <BookOpen size={20} /> :
+                                         note.category === 'Business Tech' ? <FileText size={20} /> :
+                                         note.category === 'Health' ? <Atom size={20} /> :
+                                         note.category === 'Spanish' ? <BookOpen size={20} /> : <FileText size={20} />}
                                     </div>
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => startEditing(note)} className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg">
+                                        <button onClick={(e) => { e.stopPropagation(); togglePinNote(note.id); }} className={`p-2 rounded-lg ${note.pinned ? 'text-yellow-300 hover:text-yellow-200' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
+                                            <Star size={16} />
+                                        </button>
+                                        <button onClick={(e) => { e.stopPropagation(); startEditing(note); }} className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg">
                                             <Edit2 size={16} />
                                         </button>
-                                        <button onClick={() => deleteNote(note.id)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg">
+                                        <button onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg">
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
@@ -315,7 +494,12 @@ const StudyNotes = () => {
                                     <div className="p-3 rounded-2xl bg-white/10 text-white">
                                         {selectedNote.category === 'Math' ? <Calculator size={24} /> :
                                          selectedNote.category === 'Science' ? <Atom size={24} /> :
-                                         selectedNote.category === 'Biology' ? <Beaker size={24} /> : <FileText size={24} />}
+                                         selectedNote.category === 'Biology' ? <Beaker size={24} /> :
+                                         selectedNote.category === 'English' ? <BookOpen size={24} /> :
+                                         selectedNote.category === 'Social' ? <BookOpen size={24} /> :
+                                         selectedNote.category === 'Business Tech' ? <FileText size={24} /> :
+                                         selectedNote.category === 'Health' ? <Atom size={24} /> :
+                                         selectedNote.category === 'Spanish' ? <BookOpen size={24} /> : <FileText size={24} />}
                                     </div>
                                     <div>
                                         <div className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60 mb-1">
@@ -373,7 +557,7 @@ const StudyNotes = () => {
                 )}
             </AnimatePresence>
 
-            {filteredNotes.length === 0 && (
+            {sortedNotes.length === 0 && (
                 <div className="text-center py-20 bg-surface/30 rounded-3xl border border-dashed border-white/10">
                     <BookOpen size={48} className="mx-auto mb-4 text-gray-600 opacity-20" />
                     <p className="text-gray-500 font-medium">No notes found matching your search.</p>

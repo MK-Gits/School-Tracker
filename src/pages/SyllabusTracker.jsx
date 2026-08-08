@@ -4,7 +4,6 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { Plus, Trash2, ChevronDown, ChevronUp, Book, CheckCircle, Circle, Trophy, Download, Edit2, X, Save, GripVertical } from 'lucide-react';
 import { api } from '../utils/api';
 import { useStudent } from '../context/StudentContext';
-import { georgia8thGradeData } from '../data/georgia8thGrade';
 import { forsyth3rdGradeData } from '../data/forsyth3rdGrade';
 import { sawnee3rdGradeData } from '../data/sawnee3rdGrade';
 import { westForsyth9thGradeData } from '../data/westForsyth9thGrade';
@@ -478,16 +477,6 @@ const SyllabusTracker = () => {
                                         <div>
                                             <div className="font-bold text-white group-hover:text-primary">Sawnee 3rd Grade</div>
                                             <div className="text-[10px] text-gray-500">Sawnee Elementary / Forsyth County</div>
-                                        </div>
-                                        <ChevronDown size={16} className="-rotate-90 opacity-40" />
-                                    </button>
-                                    <button 
-                                        onClick={() => loadCurriculum(georgia8thGradeData)}
-                                        className="w-full text-left px-4 py-3 hover:bg-primary/10 rounded-xl transition-colors group flex items-center justify-between"
-                                    >
-                                        <div>
-                                            <div className="font-bold text-white group-hover:text-primary">8th Grade</div>
-                                            <div className="text-[10px] text-gray-500">Georgia Standards of Excellence</div>
                                         </div>
                                         <ChevronDown size={16} className="-rotate-90 opacity-40" />
                                     </button>
