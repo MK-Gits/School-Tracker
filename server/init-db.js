@@ -63,7 +63,17 @@ export const initDb = async () => {
         student_id VARCHAR(255) REFERENCES students(id) ON DELETE CASCADE,
         title VARCHAR(255) NOT NULL,
         content TEXT,
+        formulas TEXT,
         category VARCHAR(100)
+      );
+
+      CREATE TABLE IF NOT EXISTS diagrams (
+        id VARCHAR(255) PRIMARY KEY,
+        student_id VARCHAR(255) REFERENCES students(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        content TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS daily_tasks (
@@ -126,6 +136,8 @@ export const initDb = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    await client.query(`ALTER TABLE study_notes ADD COLUMN IF NOT EXISTS formulas TEXT;`);
 
     await client.query('COMMIT');
     console.log('Database tables initialized successfully!');

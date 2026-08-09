@@ -208,14 +208,63 @@ app.post('/api/notes/:studentId/replace', async (req, res) => {
       for (let i = 0; i < notes.length; i++) {
         const note = notes[i];
         await client.query(
-          'INSERT INTO study_notes (id, student_id, title, content, category) VALUES ($1, $2, $3, $4, $5)',
-          [note.id, studentId, note.title, note.content, note.category]
+          'INSERT INTO study_notes (id, student_id, title, content, formulas, category) VALUES ($1, $2, $3, $4, $5, $6)',
+          [note.id, studentId, note.title, note.content, note.formulas || '', note.category]
         );
       }
     }
     
     await client.query('COMMIT');
     res.json({ message: 'Notes updated successfully' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// --- DIAGRAMS ---
+app.get('/api/diagrams/:studentId', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM diagrams WHERE student_id = $1 ORDER BY updated_at DESC, created_at DESC', [req.params.studentId]);
+    const formatted = result.rows.map(diagram => ({
+      ...diagram,
+      content: diagram.content ? JSON.parse(diagram.content) : { title: diagram.title || 'My Diagram', elements: [] }
+    }));
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/diagrams/:studentId/replace', async (req, res) => {
+  const { studentId } = req.params;
+  const diagrams = req.body || [];
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM diagrams WHERE student_id = $1', [studentId]);
+
+    if (Array.isArray(diagrams)) {
+      for (let i = 0; i < diagrams.length; i++) {
+        const diagram = diagrams[i];
+        const payload = {
+          id: diagram.id,
+          title: diagram.title || 'My Diagram',
+          elements: Array.isArray(diagram.elements) ? diagram.elements : [],
+          updatedAt: diagram.updatedAt || new Date().toISOString()
+        };
+        await client.query(
+          'INSERT INTO diagrams (id, student_id, title, content, updated_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)',
+          [payload.id, studentId, payload.title, JSON.stringify(payload)]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: 'Diagrams updated successfully' });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });

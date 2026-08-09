@@ -12,6 +12,7 @@ import DailyTracker from './pages/DailyTracker';
 
 import Gradebook from './pages/Gradebook';
 import ClubsTracker from './pages/ClubsTracker';
+import DiagramPage from './pages/DiagramPage';
 
 import { StudentProvider } from './context/StudentContext';
 
@@ -27,6 +28,7 @@ function App() {
             <Route path="/gradebook" element={<Gradebook />} />
             <Route path="/activities" element={<ActivitiesTracker />} />
             <Route path="/notes" element={<StudyNotes />} />
+            <Route path="/diagram" element={<DiagramPage />} />
             <Route path="/clubs" element={<ClubsTracker />} />
           </Routes>
         </Layout>

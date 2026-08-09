@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Activity, Calculator, Menu, X, Calendar, User, Plus, Trash2, Edit2, Database, Wifi, WifiOff, CloudOff, RefreshCw, Users } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Activity, Calculator, Menu, X, Calendar, User, Plus, Trash2, Edit2, Database, Wifi, WifiOff, CloudOff, RefreshCw, Users, PenTool } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStudent } from '../context/StudentContext';
@@ -20,6 +20,7 @@ const Layout = ({ children }) => {
         { path: '/gradebook', label: 'Gradebook', icon: Calculator },
         { path: '/activities', label: 'Activities', icon: Activity },
         { path: '/notes', label: 'Study Notes', icon: Calculator },
+        { path: '/diagram', label: 'Diagram', icon: PenTool },
         { path: '/clubs', label: 'Clubs', icon: Users },
     ];
 

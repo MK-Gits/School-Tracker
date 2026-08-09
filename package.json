@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "^0.18.1",
     "@tailwindcss/typography": "^0.5.19",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

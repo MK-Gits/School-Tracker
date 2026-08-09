@@ -30,6 +30,7 @@ export const api = {
           case 'syllabus': await this.saveSyllabus(item.studentId, item.data, true); success = true; break;
           case 'activities': await this.saveActivities(item.studentId, item.data, true); success = true; break;
           case 'notes': await this.saveNotes(item.studentId, item.data, true); success = true; break;
+          case 'diagrams': await this.saveDiagrams(item.studentId, item.data, true); success = true; break;
           case 'daily': await this.saveDailyTasks(item.studentId, item.data, true); success = true; break;
           case 'grades': await this.saveGrades(item.studentId, item.data, true); success = true; break;
           case 'clubs': await this.saveClubs(item.studentId, item.data, true); success = true; break;
@@ -129,6 +130,27 @@ export const api = {
       if (isSyncing) throw err;
       console.warn("Offline: Saving notes to sync queue");
       addToQueue('notes', studentId, notes);
+      return { offline: true };
+    }
+  },
+
+  // --- DIAGRAMS ---
+  async getDiagrams(studentId) {
+    const res = await fetch(`${API_URL}/diagrams/${studentId}`);
+    return res.json();
+  },
+  async saveDiagrams(studentId, diagrams, isSyncing = false) {
+    try {
+      const res = await fetch(`${API_URL}/diagrams/${studentId}/replace`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(diagrams)
+      });
+      return res.json();
+    } catch (err) {
+      if (isSyncing) throw err;
+      console.warn('Offline: Saving diagrams to sync queue');
+      addToQueue('diagrams', studentId, diagrams);
       return { offline: true };
     }
   },

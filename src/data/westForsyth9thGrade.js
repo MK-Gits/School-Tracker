@@ -27,12 +27,12 @@ export const westForsyth9thGradeData = [
   {
     name: "MATHS - Algebra 1",
     topics: [
-      { name: "Mathematical Modeling" },
-      { name: "Functional & Graphical Reasoning" },
-      { name: "Geometric & Spatial Reasoning" },
-      { name: "Patterning & Algebraic Reasoning" },
-      { name: "Numerical Reasoning" },
-      { name: "Data & Statistical Reasoning" }
+      { name: "Linear equations, slope, and slope-intercept form" },
+      { name: "Systems of linear equations and solution methods" },
+      { name: "Function notation, domain/range, and function families" },
+      { name: "Quadratic expressions, factoring, and vertex form" },
+      { name: "Exponents, scientific notation, and power rules" },
+      { name: "Graphing linear and nonlinear relationships" }
     ]
   },
   {

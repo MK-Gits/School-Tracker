@@ -14,7 +14,7 @@ import { Copy, Check } from 'lucide-react';
 const StudyNotes = () => {
     const { currentStudent } = useStudent();
     const [notes, setNotes] = useState([]);
-    const [newNote, setNewNote] = useState({ title: '', content: '', category: 'Math' });
+    const [newNote, setNewNote] = useState({ title: '', content: '', formulas: '', category: 'Math' });
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('All');
     const [sortOption, setSortOption] = useState('Newest');
@@ -26,7 +26,7 @@ const StudyNotes = () => {
 
     // Editing State
     const [editingNoteId, setEditingNoteId] = useState(null);
-    const [editNoteData, setEditNoteData] = useState({ title: '', content: '', category: 'Math' });
+    const [editNoteData, setEditNoteData] = useState({ title: '', content: '', formulas: '', category: 'Math' });
 
     useEffect(() => {
         if (currentStudent?.id) {
@@ -39,7 +39,7 @@ const StudyNotes = () => {
 
     const startEditing = (note) => {
         setEditingNoteId(note.id);
-        setEditNoteData({ title: note.title, content: note.content, category: note.category });
+        setEditNoteData({ title: note.title, content: note.content, formulas: note.formulas || '', category: note.category });
     };
 
     const addNote = () => {
@@ -54,7 +54,7 @@ const StudyNotes = () => {
         }, ...notes];
         setNotes(updatedNotes);
         api.saveNotes(currentStudent?.id, updatedNotes);
-        setNewNote({ title: '', content: '', category: 'Math' });
+        setNewNote({ title: '', content: '', formulas: '', category: 'Math' });
         setIsAdding(false);
     };
 
@@ -88,6 +88,7 @@ const StudyNotes = () => {
     const filteredNotes = notes.filter(n =>
         (n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         n.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        n.formulas?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         n.category.toLowerCase().includes(searchQuery.toLowerCase())) &&
         (filterCategory === 'All' || n.category === filterCategory)
     );
@@ -287,6 +288,16 @@ const StudyNotes = () => {
                                 />
                             )}
                         </div>
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Formulas / Key Equations</label>
+                            <textarea
+                                value={newNote.formulas}
+                                onChange={(e) => setNewNote({ ...newNote, formulas: e.target.value })}
+                                rows="3"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-primary transition-colors text-white"
+                                placeholder="Add formulas or important equations here..."
+                            />
+                        </div>
                         <button
                             onClick={addNote}
                             className="w-full bg-primary hover:bg-primary/80 text-white py-3 rounded-xl font-bold transition-colors"
@@ -335,6 +346,13 @@ const StudyNotes = () => {
                                             rows="3"
                                             className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
                                         />
+                                        <textarea
+                                            value={editNoteData.formulas}
+                                            onChange={(e) => setEditNoteData({ ...editNoteData, formulas: e.target.value })}
+                                            rows="3"
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                            placeholder="Formulas / key equations"
+                                        />
                                         <div className="flex gap-2">
                                             <button onClick={saveEdit} className="flex-1 bg-primary py-2 rounded-xl text-xs font-bold">Save</button>
                                             <button onClick={() => setEditingNoteId(null)} className="px-4 bg-white/5 py-2 rounded-xl text-xs font-bold">Cancel</button>
@@ -380,6 +398,17 @@ const StudyNotes = () => {
                                                 {processNoteContent(note.content)}
                                             </ReactMarkdown>
                                         </div>
+                                        {note.formulas && (
+                                            <div className="mt-4 rounded-2xl bg-white/5 border border-white/10 p-4 text-sm text-gray-300">
+                                                <div className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Formulas</div>
+                                                <ReactMarkdown 
+                                                    remarkPlugins={[remarkGfm, remarkMath]}
+                                                    rehypePlugins={[rehypeKatex]}
+                                                >
+                                                    {processNoteContent(note.formulas)}
+                                                </ReactMarkdown>
+                                            </div>
+                                        )}
                                         <div className="mt-4 pt-4 border-t border-white/5 text-[10px] text-gray-500 font-bold uppercase tracking-wider group-hover:text-primary transition-colors">
                                             Updated {new Date(note.updatedAt || note.createdAt).toLocaleDateString()}
                                         </div>
@@ -419,6 +448,13 @@ const StudyNotes = () => {
                                     onChange={(e) => setEditNoteData({ ...editNoteData, content: e.target.value })}
                                     rows="3"
                                     className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                />
+                                <textarea
+                                    value={editNoteData.formulas}
+                                    onChange={(e) => setEditNoteData({ ...editNoteData, formulas: e.target.value })}
+                                    rows="3"
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                    placeholder="Formulas / key equations"
                                 />
                                 <div className="flex gap-2">
                                     <button onClick={saveEdit} className="flex-1 bg-primary py-2 rounded-xl text-xs font-bold">Save</button>
@@ -462,6 +498,17 @@ const StudyNotes = () => {
                                         {processNoteContent(note.content)}
                                     </ReactMarkdown>
                                 </div>
+                                {note.formulas && (
+                                    <div className="mt-4 rounded-2xl bg-white/5 border border-white/10 p-4 text-sm text-gray-300">
+                                        <div className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Formulas</div>
+                                        <ReactMarkdown 
+                                            remarkPlugins={[remarkGfm, remarkMath]}
+                                            rehypePlugins={[rehypeKatex]}
+                                        >
+                                            {processNoteContent(note.formulas)}
+                                        </ReactMarkdown>
+                                    </div>
+                                )}
                                 <div className="mt-4 pt-4 border-t border-white/5 text-[10px] text-gray-500 font-bold uppercase tracking-wider group-hover:text-primary transition-colors">
                                     Click to read full note
                                 </div>
@@ -546,11 +593,19 @@ const StudyNotes = () => {
                                         {processNoteContent(selectedNote.content)}
                                     </ReactMarkdown>
                                 </div>
-                            </div>
-
-                            {/* Footer */}
-                            <div className="p-6 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-gray-500 border-t border-white/10 bg-black/10">
-                                End of Note
+                                {selectedNote.formulas && (
+                                    <div className="mt-8 rounded-3xl bg-black/20 border border-white/10 p-6">
+                                        <div className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Formulas / Key Equations</div>
+                                        <div className="prose prose-invert prose-sm max-w-none">
+                                            <ReactMarkdown 
+                                                remarkPlugins={[remarkGfm, remarkMath]}
+                                                rehypePlugins={[rehypeKatex]}
+                                            >
+                                                {processNoteContent(selectedNote.formulas)}
+                                            </ReactMarkdown>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     </div>
