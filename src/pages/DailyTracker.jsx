@@ -6,6 +6,11 @@ import { api } from '../utils/api';
 import { useStudent } from '../context/StudentContext';
 import { formatDateKey } from '../utils/dateUtils';
 import { Link } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 const DailyTracker = () => {
     const { currentStudent } = useStudent();
@@ -17,8 +22,89 @@ const DailyTracker = () => {
     const [newTask, setNewTask] = useState('');
     const [viewDate, setViewDate] = useState(new Date()); // For calendar navigation
     const [newTest, setNewTest] = useState({ subject: '', name: '', date: '' });
+    const [newReview, setNewReview] = useState({ subject: 'Math', title: '', content: '' });
+    const [isReviewPreview, setIsReviewPreview] = useState(false);
 
     const dateKey = useMemo(() => formatDateKey(selectedDate), [selectedDate]);
+
+    const normalizeDailyTask = (task) => {
+        if (!task || typeof task !== 'object') {
+            return { id: Date.now(), text: String(task ?? ''), completed: false, type: 'task' };
+        }
+
+        if (task.type === 'syllabus-review' || task.subject || task.title || task.content || task.dailySyllabusReview) {
+            const reviewPayload = task.dailySyllabusReview || {
+                subject: task.subject || 'Math',
+                title: task.title || 'Daily Review',
+                content: task.content || ''
+            };
+
+            return {
+                id: task.id ?? Date.now(),
+                type: 'syllabus-review',
+                subject: reviewPayload.subject || 'Math',
+                title: reviewPayload.title || 'Daily Review',
+                content: reviewPayload.content || '',
+                completed: Boolean(task.completed)
+            };
+        }
+
+        if (typeof task.text === 'string') {
+            try {
+                const parsed = JSON.parse(task.text);
+                if (parsed && parsed.type === 'syllabus-review') {
+                    return {
+                        id: task.id ?? Date.now(),
+                        type: 'syllabus-review',
+                        subject: parsed.subject || 'Math',
+                        title: parsed.title || 'Daily Review',
+                        content: parsed.content || '',
+                        completed: Boolean(task.completed)
+                    };
+                }
+            } catch {
+                // Not a review payload; treat it as a normal task.
+            }
+        }
+
+        return {
+            id: task.id ?? Date.now(),
+            text: typeof task.text === 'string' ? task.text : '',
+            completed: Boolean(task.completed),
+            type: 'task'
+        };
+    };
+
+    const serializeDailyTasks = (tasksByDate) => {
+        const serialized = {};
+
+        Object.entries(tasksByDate || {}).forEach(([date, tasks]) => {
+            serialized[date] = Array.isArray(tasks) ? tasks.map((task) => {
+                const normalized = normalizeDailyTask(task);
+
+                if (normalized.type === 'syllabus-review') {
+                    return {
+                        id: normalized.id,
+                        text: JSON.stringify({
+                            type: 'syllabus-review',
+                            subject: normalized.subject,
+                            title: normalized.title,
+                            content: normalized.content
+                        }),
+                        completed: false
+                    };
+                }
+
+                return {
+                    id: normalized.id,
+                    text: typeof normalized.text === 'string' ? normalized.text : '',
+                    completed: Boolean(normalized.completed)
+                };
+            }) : [];
+        });
+
+        return serialized;
+    };
 
     useEffect(() => {
         if (currentStudent?.id) {
@@ -38,7 +124,7 @@ const DailyTracker = () => {
     // No longer using useEffect for saving to avoid race conditions on mount/unmount
     // Each action now saves directly
 
-    const dailyTasks = useMemo(() => allDailyTasks[dateKey] || [], [allDailyTasks, dateKey]);
+    const dailyTasks = useMemo(() => (allDailyTasks[dateKey] || []).map(normalizeDailyTask), [allDailyTasks, dateKey]);
 
     // Filter auto-logged items for the selected date
     const completedTopics = useMemo(() => syllabusData.flatMap(s =>
@@ -58,29 +144,50 @@ const DailyTracker = () => {
         if (!newTask.trim()) return;
         const updatedTasks = {
             ...allDailyTasks,
-            [dateKey]: [...dailyTasks, { id: Date.now(), text: newTask, completed: false }]
+            [dateKey]: [...(allDailyTasks[dateKey] || []).map(normalizeDailyTask), { id: Date.now(), text: newTask, completed: false, type: 'task' }]
         };
         setAllDailyTasks(updatedTasks);
-        api.saveDailyTasks(currentStudent?.id, updatedTasks);
+        api.saveDailyTasks(currentStudent?.id, serializeDailyTasks(updatedTasks));
         setNewTask('');
+    };
+
+    const addSyllabusReview = () => {
+        if (!newReview.subject.trim() || !newReview.title.trim() || !newReview.content.trim()) return;
+
+        const updatedTasks = {
+            ...allDailyTasks,
+            [dateKey]: [...(allDailyTasks[dateKey] || []).map(normalizeDailyTask), {
+                id: Date.now(),
+                type: 'syllabus-review',
+                subject: newReview.subject,
+                title: newReview.title,
+                content: newReview.content,
+                completed: false
+            }]
+        };
+
+        setAllDailyTasks(updatedTasks);
+        api.saveDailyTasks(currentStudent?.id, serializeDailyTasks(updatedTasks));
+        setNewReview({ subject: 'Math', title: '', content: '' });
+        setIsReviewPreview(false);
     };
 
     const toggleDailyTask = (id) => {
         const updatedTasks = {
             ...allDailyTasks,
-            [dateKey]: dailyTasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
+            [dateKey]: (allDailyTasks[dateKey] || []).map(normalizeDailyTask).map(t => t.id === id && t.type === 'task' ? { ...t, completed: !t.completed } : t)
         };
         setAllDailyTasks(updatedTasks);
-        api.saveDailyTasks(currentStudent?.id, updatedTasks);
+        api.saveDailyTasks(currentStudent?.id, serializeDailyTasks(updatedTasks));
     };
 
     const deleteDailyTask = (id) => {
         const updatedTasks = {
             ...allDailyTasks,
-            [dateKey]: dailyTasks.filter(t => t.id !== id)
+            [dateKey]: (allDailyTasks[dateKey] || []).map(normalizeDailyTask).filter(t => t.id !== id)
         };
         setAllDailyTasks(updatedTasks);
-        api.saveDailyTasks(currentStudent?.id, updatedTasks);
+        api.saveDailyTasks(currentStudent?.id, serializeDailyTasks(updatedTasks));
     };
 
     const addTest = async (e) => {
@@ -300,35 +407,142 @@ const DailyTracker = () => {
                         </div>
 
                         <div className="space-y-4 overflow-y-auto pr-2">
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h3 className="text-base font-bold text-white">Daily Syllabus Review</h3>
+                                    <span className="text-[10px] uppercase tracking-[0.2em] text-primary">Subject notes</span>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Subject</label>
+                                        <select
+                                            value={newReview.subject}
+                                            onChange={(e) => setNewReview({ ...newReview, subject: e.target.value })}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary text-white"
+                                        >
+                                            <option value="Algebra I" className="bg-[#1a1c20]">Algebra I</option>
+                                            <option value="Science" className="bg-[#1a1c20]">Science</option>
+                                            <option value="AP Human" className="bg-[#1a1c20]">AP Human</option>
+                                            <option value="ELA" className="bg-[#1a1c20]">ELA</option>
+                                            <option value="Spanish" className="bg-[#1a1c20]">Spanish</option>
+                                            <option value="Health" className="bg-[#1a1c20]">Health</option>
+                                            <option value="Business Tech" className="bg-[#1a1c20]">Business Tech</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Title</label>
+                                        <input
+                                            type="text"
+                                            value={newReview.title}
+                                            onChange={(e) => setNewReview({ ...newReview, title: e.target.value })}
+                                            placeholder="Today’s concept"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="block text-[10px] uppercase tracking-wider text-gray-500">Rich text review</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsReviewPreview(!isReviewPreview)}
+                                            className="text-xs text-primary hover:underline"
+                                        >
+                                            {isReviewPreview ? 'Edit' : 'Preview'}
+                                        </button>
+                                    </div>
+
+                                    {isReviewPreview ? (
+                                        <div className="min-h-[120px] bg-white/5 border border-white/10 rounded-xl p-3 prose prose-invert prose-sm max-w-none">
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm, remarkMath]}
+                                                rehypePlugins={[rehypeKatex]}
+                                            >
+                                                {newReview.content || '*Nothing added yet*'}
+                                            </ReactMarkdown>
+                                        </div>
+                                    ) : (
+                                        <textarea
+                                            value={newReview.content}
+                                            onChange={(e) => setNewReview({ ...newReview, content: e.target.value })}
+                                            rows="4"
+                                            placeholder="Example: **Math**: Review slope-intercept form and solve $y = mx + b$ problems.\n\n**Spanish**: Practice new vocabulary and verb endings."
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none"
+                                        />
+                                    )}
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={addSyllabusReview}
+                                    className="w-full bg-primary hover:bg-primary/80 text-white py-2.5 rounded-xl font-medium transition-all active:scale-95"
+                                >
+                                    Add review
+                                </button>
+                            </div>
+
                             <AnimatePresence mode="popLayout">
                                 {/* Manual Daily Goals */}
                                 {dailyTasks.map((task) => (
-                                    <motion.div
-                                        key={task.id}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: 10 }}
-                                        layout
-                                        className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl group hover:bg-white/[0.08] transition-colors border border-transparent hover:border-white/5"
-                                    >
-                                        <button
-                                            onClick={() => toggleDailyTask(task.id)}
-                                            className={`flex-shrink-0 transition-all duration-300 ${task.completed ? 'text-green-500 scale-110' : 'text-gray-500 hover:text-white'}`}
+                                    task.type === 'syllabus-review' ? (
+                                        <motion.div
+                                            key={task.id}
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 10 }}
+                                            layout
+                                            className="p-4 bg-primary/10 rounded-2xl border border-primary/20 group"
                                         >
-                                            {task.completed ? <CheckCircle size={24} /> : <Circle size={24} />}
-                                        </button>
-                                        <span className={`flex-1 text-[15px] font-medium transition-all ${task.completed ? 'text-gray-500 line-through decoration-2' : 'text-gray-100'}`}>
-                                            {task.text}
-                                        </span>
-                                        <button
-                                            onClick={() => deleteDailyTask(task.id)}
-                                            className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                            <div className="flex items-start justify-between gap-3 mb-3">
+                                                <div>
+                                                    <p className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold">{task.subject}</p>
+                                                    <h4 className="text-lg font-bold text-white mt-1">{task.title}</h4>
+                                                </div>
+                                                <button
+                                                    onClick={() => deleteDailyTask(task.id)}
+                                                    className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                                >
+                                                    <Plus size={18} className="rotate-45" />
+                                                </button>
+                                            </div>
+                                            <div className="prose prose-invert prose-sm max-w-none text-gray-200">
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm, remarkMath]}
+                                                    rehypePlugins={[rehypeKatex]}
+                                                >
+                                                    {task.content}
+                                                </ReactMarkdown>
+                                            </div>
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div
+                                            key={task.id}
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 10 }}
+                                            layout
+                                            className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl group hover:bg-white/[0.08] transition-colors border border-transparent hover:border-white/5"
                                         >
-                                            <Plus size={20} className="rotate-45" />
-                                        </button>
-                                    </motion.div>
+                                            <button
+                                                onClick={() => toggleDailyTask(task.id)}
+                                                className={`flex-shrink-0 transition-all duration-300 ${task.completed ? 'text-green-500 scale-110' : 'text-gray-500 hover:text-white'}`}
+                                            >
+                                                {task.completed ? <CheckCircle size={24} /> : <Circle size={24} />}
+                                            </button>
+                                            <span className={`flex-1 text-[15px] font-medium transition-all ${task.completed ? 'text-gray-500 line-through decoration-2' : 'text-gray-100'}`}>
+                                                {task.text}
+                                            </span>
+                                            <button
+                                                onClick={() => deleteDailyTask(task.id)}
+                                                className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                            >
+                                                <Plus size={20} className="rotate-45" />
+                                            </button>
+                                        </motion.div>
+                                    )
                                 ))}
-
 
                                 {/* Activity Updates */}
                                 {activityUpdates.map((update) => (
