@@ -20,6 +20,7 @@ const DailyTracker = () => {
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [newTask, setNewTask] = useState('');
+    const [selectedSyllabusName, setSelectedSyllabusName] = useState('');
     const [viewDate, setViewDate] = useState(new Date()); // For calendar navigation
     const [newTest, setNewTest] = useState({ subject: '', name: '', date: '' });
     const [newReview, setNewReview] = useState({ subject: 'Math', title: '', content: '' });
@@ -149,6 +150,22 @@ const DailyTracker = () => {
         setAllDailyTasks(updatedTasks);
         api.saveDailyTasks(currentStudent?.id, serializeDailyTasks(updatedTasks));
         setNewTask('');
+    };
+
+    const addSyllabusTask = () => {
+        if (!selectedSyllabusName) return;
+
+        const updatedTasks = {
+            ...allDailyTasks,
+            [dateKey]: [...(allDailyTasks[dateKey] || []).map(normalizeDailyTask), {
+                id: Date.now(),
+                text: `Syllabus: ${selectedSyllabusName}`,
+                completed: false,
+                type: 'task'
+            }]
+        };
+        setAllDailyTasks(updatedTasks);
+        api.saveDailyTasks(currentStudent?.id, serializeDailyTasks(updatedTasks));
     };
 
     const addSyllabusReview = () => {
@@ -401,6 +418,30 @@ const DailyTracker = () => {
                             <button
                                 onClick={addDailyTask}
                                 className="bg-primary hover:bg-primary/80 text-white px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95 flex items-center justify-center"
+                            >
+                                <Plus size={24} />
+                            </button>
+                        </div>
+
+                        <div className="flex gap-4 mb-6">
+                            <select
+                                value={selectedSyllabusName}
+                                onChange={(e) => setSelectedSyllabusName(e.target.value)}
+                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 focus:outline-none focus:border-primary text-white"
+                                aria-label="Select a syllabus to add to the activity log"
+                            >
+                                <option value="" className="bg-[#1a1c20]">Select a syllabus</option>
+                                {[...new Set([...syllabusData.map(syllabus => syllabus.name).filter(Boolean), 'ELA', 'Social Studies', 'Science', 'Math'])].map(syllabusName => (
+                                    <option key={syllabusName} value={syllabusName} className="bg-[#1a1c20]">
+                                        {syllabusName}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={addSyllabusTask}
+                                disabled={!selectedSyllabusName}
+                                aria-label="Add selected syllabus to activity log"
+                                className="bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95 flex items-center justify-center"
                             >
                                 <Plus size={24} />
                             </button>
