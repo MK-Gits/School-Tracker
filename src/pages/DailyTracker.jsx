@@ -91,7 +91,7 @@ const DailyTracker = () => {
                             title: normalized.title,
                             content: normalized.content
                         }),
-                        completed: false
+                        completed: Boolean(normalized.completed)
                     };
                 }
 
@@ -175,7 +175,7 @@ const DailyTracker = () => {
     const toggleDailyTask = (id) => {
         const updatedTasks = {
             ...allDailyTasks,
-            [dateKey]: (allDailyTasks[dateKey] || []).map(normalizeDailyTask).map(t => t.id === id && t.type === 'task' ? { ...t, completed: !t.completed } : t)
+            [dateKey]: (allDailyTasks[dateKey] || []).map(normalizeDailyTask).map(t => t.id === id ? { ...t, completed: !t.completed } : t)
         };
         setAllDailyTasks(updatedTasks);
         api.saveDailyTasks(currentStudent?.id, serializeDailyTasks(updatedTasks));
@@ -480,7 +480,7 @@ const DailyTracker = () => {
                                     onClick={addSyllabusReview}
                                     className="w-full bg-primary hover:bg-primary/80 text-white py-2.5 rounded-xl font-medium transition-all active:scale-95"
                                 >
-                                    Add review
+                                    Add task
                                 </button>
                             </div>
 
@@ -494,12 +494,23 @@ const DailyTracker = () => {
                                             animate={{ opacity: 1, x: 0 }}
                                             exit={{ opacity: 0, x: 10 }}
                                             layout
-                                            className="p-4 bg-primary/10 rounded-2xl border border-primary/20 group"
+                                            className={`p-4 rounded-2xl border group ${task.completed ? 'bg-green-500/10 border-green-500/20' : 'bg-primary/10 border-primary/20'}`}
                                         >
                                             <div className="flex items-start justify-between gap-3 mb-3">
-                                                <div>
-                                                    <p className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold">{task.subject}</p>
-                                                    <h4 className="text-lg font-bold text-white mt-1">{task.title}</h4>
+                                                <div className="flex items-start gap-3 flex-1">
+                                                    <button
+                                                        onClick={() => toggleDailyTask(task.id)}
+                                                        className={`mt-1 flex-shrink-0 transition-all duration-300 ${task.completed ? 'text-green-500 scale-110' : 'text-gray-500 hover:text-white'}`}
+                                                        aria-label={task.completed ? 'Mark review task as incomplete' : 'Mark review task as complete'}
+                                                    >
+                                                        {task.completed ? <CheckCircle size={24} /> : <Circle size={24} />}
+                                                    </button>
+                                                    <div className="flex-1">
+                                                        <p className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold">{task.subject}</p>
+                                                        <h4 className={`text-lg font-bold mt-1 ${task.completed ? 'text-green-300 line-through decoration-2' : 'text-white'}`}>
+                                                            {task.title}
+                                                        </h4>
+                                                    </div>
                                                 </div>
                                                 <button
                                                     onClick={() => deleteDailyTask(task.id)}
@@ -508,7 +519,7 @@ const DailyTracker = () => {
                                                     <Plus size={18} className="rotate-45" />
                                                 </button>
                                             </div>
-                                            <div className="prose prose-invert prose-sm max-w-none text-gray-200">
+                                            <div className={`prose prose-invert prose-sm max-w-none ${task.completed ? 'text-gray-300' : 'text-gray-200'}`}>
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm, remarkMath]}
                                                     rehypePlugins={[rehypeKatex]}

@@ -97,14 +97,34 @@ const Dashboard = () => {
         // Process Daily Tasks
         const todaysTasks = dailyTasksData[todayKey] || [];
         todaysTasks.forEach(task => {
+            const normalizedTask = (() => {
+                if (typeof task?.text === 'string') {
+                    try {
+                        const parsed = JSON.parse(task.text);
+                        if (parsed && parsed.type === 'syllabus-review') {
+                            return {
+                                id: task.id,
+                                name: parsed.title || parsed.subject || 'Daily Review',
+                                detail: parsed.subject || 'Daily Review',
+                                type: 'daily'
+                            };
+                        }
+                    } catch {
+                        // Fall through to the plain text value below.
+                    }
+                }
+
+                return {
+                    id: task.id,
+                    name: task.title || task.text || 'Daily Goal',
+                    detail: task.subject ? `Daily Goal • ${task.subject}` : 'Daily Goal',
+                    type: 'daily'
+                };
+            })();
+
             if (!task.completed) {
                 pendingCount++;
-                allPending.push({
-                    id: task.id,
-                    name: task.text,
-                    detail: 'Daily Goal',
-                    type: 'daily'
-                });
+                allPending.push(normalizedTask);
             }
         });
 
